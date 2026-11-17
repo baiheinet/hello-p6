@@ -1,20 +1,14 @@
 import { resolveListState, useApiClient } from '@nocobase/app-client';
 import { useTranslation } from '@nocobase/i18n/client';
-import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react';
+import { useCallback, useEffect, useState, type ReactElement } from 'react';
 import { Link, Outlet } from 'react-router';
 import { PlusIcon } from 'lucide-react';
-import {
-  type ColumnDef,
-  type Row,
-} from '@tanstack/react-table';
+import { type ColumnDef, type Row } from '@tanstack/react-table';
 
 import { PageContainer } from '#components/page-container';
 import { PageHeader } from '#components/page-header';
-import {
-  DataTable,
-  DataTableColumnHeader,
-} from '#components/data-table';
-import { ListFeedback, ListFeedbackActions } from '#components/list-feedback';
+import { DataTable, DataTableColumnHeader } from '#components/data-table';
+import { ListFeedback } from '#components/list-feedback';
 import { RowActions } from '#components/row-actions';
 import { Button } from '#components/ui/button';
 
@@ -81,7 +75,11 @@ function useProjects() {
   const [reloadKey, setReloadKey] = useState(0);
   const reload = useCallback(() => {
     setReloadKey((value) => value + 1);
-    setResult((value) => ({ ...value, loading: true, revision: value.revision + 1 }));
+    setResult((value) => ({
+      ...value,
+      loading: true,
+      revision: value.revision + 1,
+    }));
   }, []);
   useEffect(() => {
     const controller = new AbortController();
@@ -119,7 +117,10 @@ function useProjectColumns(): ColumnDef<ResourceProject>[] {
     {
       accessorKey: 'name',
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title={t('resourcePlanning.projectName')} />
+        <DataTableColumnHeader
+          column={column}
+          title={t('resourcePlanning.projectName')}
+        />
       ),
       cell: ({ row }) => (
         <Link to={`/resource-projects/${row.original.id}`}>

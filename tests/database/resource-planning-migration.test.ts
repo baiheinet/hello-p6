@@ -20,10 +20,9 @@ describeMigration('202611170001_create_resource_projects', {
       nullable: false,
     });
     await expectCollection('resourceProjects').toHaveField('schedule');
-    await expectCollection('resourceProjects').toHaveField(
-      'laborOverrides',
-      { nullable: true },
-    );
+    await expectCollection('resourceProjects').toHaveField('laborOverrides', {
+      nullable: true,
+    });
   },
   down: async ({ expectCollection }) => {
     await expectCollection('resourceProjects').not.toExist();
@@ -41,12 +40,12 @@ describeMigration('202611170002_create_labor_trades', {
     // unique.
     await connection.query
       .insertInto('laborTrades')
-      .values({ name: 'Rebar', unitQuota: 0.2 })
+      .values({ id: 'trade-1', name: 'Rebar', unitQuota: 0.2 })
       .execute();
     await expect(
       connection.query
         .insertInto('laborTrades')
-        .values({ name: 'Rebar', unitQuota: 0.3 })
+        .values({ id: 'trade-2', name: 'Rebar', unitQuota: 0.3 })
         .execute(),
     ).rejects.toThrow();
   },

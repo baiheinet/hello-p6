@@ -14,9 +14,9 @@ export interface ResourceProject {
    * Manual per-period labor overrides: a map of trade name to a map of period
    * index (as a string) to the overridden headcount; `null` clears one.
    */
-  readonly laborOverrides:
-    | Readonly<Record<string, Record<string, number | null>>>
-    | null;
+  readonly laborOverrides: Readonly<
+    Record<string, Record<string, number | null>>
+  > | null;
   readonly createdAt?: string;
   readonly updatedAt?: string;
 }
@@ -34,9 +34,7 @@ export interface LaborTrade {
  * Builds the project repositories from the database. The route decides which
  * policy to bind; the factory stays free of Hono and status codes.
  */
-export function resourcePlanningRepositories(
-  database: DatabaseManager,
-): {
+export function resourcePlanningRepositories(database: DatabaseManager): {
   readonly projects: Repository<ResourceProject>;
   readonly trades: Repository<LaborTrade>;
 } {
@@ -166,7 +164,9 @@ export function laborDemand(
         quantity,
         override: overridden == null ? null : overridden,
         value:
-          overridden == null ? roundLabor(quantity * trade.unitQuota) : overridden,
+          overridden == null
+            ? roundLabor(quantity * trade.unitQuota)
+            : overridden,
       });
     }
   }

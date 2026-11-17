@@ -4,7 +4,7 @@ const migration: MigrationDefinition = defineMigration({
   name: '202611170001_create_resource_projects',
   async up({ builder }) {
     await builder.createCollection('resourceProjects', (collection) => {
-      collection.increments('id');
+      collection.string('id', { length: 64 }).notNull().primary();
       collection.string('name', { length: 200 }).notNull();
       collection.float('totalQuantity', { defaultValue: 0 }).notNull();
       collection.integer('periodCount', { defaultValue: 1 }).notNull();

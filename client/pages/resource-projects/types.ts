@@ -15,9 +15,9 @@ export interface ResourceProject {
    * period index (as a string) to the overridden headcount; a `null` value
    * clears the override.
    */
-  readonly laborOverrides:
-    | { readonly [trade: string]: { readonly [index: string]: number | null } }
-    | null;
+  readonly laborOverrides: {
+    readonly [trade: string]: { readonly [index: string]: number | null };
+  } | null;
   readonly createdAt?: string;
   readonly updatedAt?: string;
 }

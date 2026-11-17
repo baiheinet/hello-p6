@@ -1,11 +1,14 @@
-import { rebalance, evenSchedule, laborDemand, roundLabor } from '../../server/services/resource-planning.js';
+import {
+  rebalance,
+  evenSchedule,
+  laborDemand,
+  roundLabor,
+} from '../../server/services/resource-planning.js';
 import { describe, expect, it } from 'vitest';
 
 describe('evenSchedule', () => {
   it('splits the total evenly when it divides exactly', () => {
-    expect(evenSchedule(10000, 10)).toEqual(
-      new Array(10).fill(1000),
-    );
+    expect(evenSchedule(10000, 10)).toEqual(new Array(10).fill(1000));
   });
   it('keeps the total exact when it does not divide', () => {
     const values = evenSchedule(100, 3);
@@ -42,13 +45,31 @@ describe('laborDemand', () => {
       trades,
     );
     expect(rows).toEqual([
-      { trade: 'Rebar', periodIndex: 0, quantity: 1000, override: null, value: 200 },
-      { trade: 'Rebar', periodIndex: 1, quantity: 2000, override: null, value: 400 },
+      {
+        trade: 'Rebar',
+        periodIndex: 0,
+        quantity: 1000,
+        override: null,
+        value: 200,
+      },
+      {
+        trade: 'Rebar',
+        periodIndex: 1,
+        quantity: 2000,
+        override: null,
+        value: 400,
+      },
     ]);
   });
   it('applies a manual override to the single cell it names', () => {
     const trades = [
-      { id: '1', name: 'Formwork', unitQuota: 0.5, createdAt: '', updatedAt: '' },
+      {
+        id: '1',
+        name: 'Formwork',
+        unitQuota: 0.5,
+        createdAt: '',
+        updatedAt: '',
+      },
     ];
     const rows = laborDemand(
       {

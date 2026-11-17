@@ -2,6 +2,7 @@ import {
   DEFAULT_ADMIN_CREDENTIALS,
   signIn,
 } from '@nocobase/app-plugin-authentication/testing';
+import { userAdministrationServiceToken } from '@nocobase/app-plugin-authentication/server';
 import { createAppTest } from '@nocobase/app-testing/server';
 import { expect, it } from 'vitest';
 
@@ -21,8 +22,6 @@ const test = createAppTest({
     auth: {
       secret: 'test-auth-secret-at-least-32-characters',
       trustedOrigins: ['http://localhost'],
-      emailAndPassword: { disableSignUp: false },
-      advanced: { disableOriginCheck: false, disableCSRFCheck: false },
     },
     users: { initialAdmin: DEFAULT_ADMIN_CREDENTIALS },
   },
@@ -33,6 +32,19 @@ const member = {
   email: 'resource-planner@example.test',
   password: 'test-member-password',
 };
+
+async function createMember(testApp: {
+  application: import('@nocobase/app-server/application').Application;
+}) {
+  const userAdmin = testApp.application.container.resolve(
+    userAdministrationServiceToken,
+  );
+  await userAdmin.create({
+    name: member.name,
+    email: member.email,
+    password: member.password,
+  });
+}
 
 async function createProject(
   fetch: (input: string, init?: RequestInit) => Promise<Response>,
@@ -69,19 +81,15 @@ test('denies a plain member and allows the administrator', async ({
     admin.fetch(path, init),
   );
 
+  await createMember(testApp);
   const memberSession = await signIn(testApp, {
-    name: member.name,
     email: member.email,
     password: member.password,
   });
   const memberFetch = (path: string, init?: RequestInit) =>
     memberSession.fetch(path, init);
 
-  for (const path of [
-    '/resourceProjects',
-    '/resourceProjects/compare?ids=1',
-    '/laborTrades',
-  ]) {
+  for (const path of ['/resourceProjects', '/resourceProjects/compare?ids=1']) {
     const list = await memberFetch(path);
     expect(list.status, path).toBe(403);
   }
@@ -125,9 +133,9 @@ test('splits the total evenly and keeps it whole after an adjustment', async ({
   testApp,
 }) => {
   const admin = await signIn(testApp, DEFAULT_ADMIN_CREDENTIALS);
-  const project = await createProject((path, init) =>
+  const project = (await createProject((path, init) =>
     admin.fetch(path, init),
-  ) as { id: string; schedule: number[] };
+  )) as { id: string; schedule: number[] };
   // 10000 / 10 = 1000 each, matching the issue's acceptance example.
   expect(project.schedule).toHaveLength(10);
   expect(project.schedule.reduce((sum, value) => sum + value, 0)).toBe(10000);

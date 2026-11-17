@@ -1,20 +1,9 @@
 import { useTranslation } from '@nocobase/i18n/client';
-import {
-  type ReactElement,
-  useMemo,
-  useState,
-} from 'react';
+import { type ReactElement, useMemo } from 'react';
 import { useSearchParams } from 'react-router';
 import ReactECharts from 'echarts-for-react';
 
-import { PageContainer } from '#components/page-container';
-import { PageHeader } from '#components/page-header';
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '#components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '#components/ui/card';
 import {
   Table,
   TableBody,

@@ -1,18 +1,11 @@
 import { useTranslation } from '@nocobase/i18n/client';
-import {
-  type ReactElement,
-  useEffect,
-  useMemo,
-  useState,
-} from 'react';
-import { useNavigate, useParams } from 'react-router';
+import { type FormEvent, type ReactElement, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router';
 
 import { FeedbackForm } from '#components/feedback-form';
 import { RouteDialog } from '#components/route-dialog';
 import { useRouteOverlay } from '#components/use-route-overlay';
-import {
-  DatePicker,
-} from '#components/date-picker';
+import { DatePicker } from '#components/date-picker';
 import {
   Field,
   FieldError,
@@ -23,7 +16,7 @@ import { Input } from '#components/ui/input';
 import { Button } from '#components/ui/button';
 
 import { useCreateProject } from './api.js';
-import { formatDateOnly, parseDateOnly } from '#lib/date-only';
+import { formatDateOnly } from '#lib/date-only';
 
 export default function NewProjectPage(): ReactElement {
   const { t } = useTranslation();
@@ -51,22 +44,27 @@ export default function NewProjectPage(): ReactElement {
     return result;
   }, [name, totalQuantity, periodCount, startDate, endDate, t]);
 
-  const submit = async () => {
+  const submit = () => {
     if (Object.keys(errors).length) return;
     setSubmitting(true);
-    try {
-      const { data } = await create({
-        name: name.trim(),
-        totalQuantity: Number(totalQuantity),
-        periodCount: Number(periodCount),
-        startDate: formatDateOnly(startDate),
-        endDate: formatDateOnly(endDate),
-      });
-      void close();
-      navigate(`../${data.id}`);
-    } finally {
-      setSubmitting(false);
-    }
+    void create({
+      name: name.trim(),
+      totalQuantity: Number(totalQuantity),
+      periodCount: Number(periodCount),
+      startDate: formatDateOnly(startDate),
+      endDate: formatDateOnly(endDate),
+    })
+      .then(({ data }) => {
+        void close();
+        void navigate(`../${data.id}`);
+      })
+      .catch(() => {})
+      .finally(() => setSubmitting(false));
+  };
+
+  const handleSubmit = (event: FormEvent) => {
+    event.preventDefault();
+    submit();
   };
 
   return (
@@ -75,14 +73,16 @@ export default function NewProjectPage(): ReactElement {
       description={t('resourcePlanning.newProjectDescription')}
       footer={
         <footer className='flex justify-end gap-2'>
-          <Button variant='ghost' onClick={() => close()}>
+          <Button variant='ghost' onClick={() => void close()}>
             {t('resourcePlanning.cancel')}
           </Button>
           <Button
             disabled={submitting || Object.keys(errors).length > 0}
-            onClick={submit}
+            onClick={handleSubmit}
           >
-            {submitting ? t('resourcePlanning.saving') : t('resourcePlanning.create')}
+            {submitting
+              ? t('resourcePlanning.saving')
+              : t('resourcePlanning.create')}
           </Button>
         </footer>
       }
@@ -104,7 +104,10 @@ export default function NewProjectPage(): ReactElement {
           <Field data-invalid={Boolean(errors.name)}>
             <FieldLabel htmlFor='rp-name'>
               {t('resourcePlanning.form.name')}
-              <span aria-hidden='true' className='text-destructive'> * </span>
+              <span aria-hidden='true' className='text-destructive'>
+                {' '}
+                *{' '}
+              </span>
             </FieldLabel>
             <Input
               id='rp-name'
@@ -112,13 +115,18 @@ export default function NewProjectPage(): ReactElement {
               onChange={(event) => setName(event.target.value)}
               aria-invalid={Boolean(errors.name)}
             />
-            <FieldError errors={[errors.name ? { message: errors.name } : undefined]} />
+            <FieldError
+              errors={[errors.name ? { message: errors.name } : undefined]}
+            />
           </Field>
           <div className='grid grid-cols-2 gap-3'>
             <Field data-invalid={Boolean(errors.totalQuantity)}>
               <FieldLabel htmlFor='rp-total'>
                 {t('resourcePlanning.form.totalQuantity')}
-                <span aria-hidden='true' className='text-destructive'> * </span>
+                <span aria-hidden='true' className='text-destructive'>
+                  {' '}
+                  *{' '}
+                </span>
               </FieldLabel>
               <Input
                 id='rp-total'
@@ -127,12 +135,21 @@ export default function NewProjectPage(): ReactElement {
                 onChange={(event) => setTotalQuantity(event.target.value)}
                 aria-invalid={Boolean(errors.totalQuantity)}
               />
-              <FieldError errors={[errors.totalQuantity ? { message: errors.totalQuantity } : undefined]} />
+              <FieldError
+                errors={[
+                  errors.totalQuantity
+                    ? { message: errors.totalQuantity }
+                    : undefined,
+                ]}
+              />
             </Field>
             <Field data-invalid={Boolean(errors.periodCount)}>
               <FieldLabel htmlFor='rp-periods'>
                 {t('resourcePlanning.form.periodCount')}
-                <span aria-hidden='true' className='text-destructive'> * </span>
+                <span aria-hidden='true' className='text-destructive'>
+                  {' '}
+                  *{' '}
+                </span>
               </FieldLabel>
               <Input
                 id='rp-periods'
@@ -141,7 +158,13 @@ export default function NewProjectPage(): ReactElement {
                 onChange={(event) => setPeriodCount(event.target.value)}
                 aria-invalid={Boolean(errors.periodCount)}
               />
-              <FieldError errors={[errors.periodCount ? { message: errors.periodCount } : undefined]} />
+              <FieldError
+                errors={[
+                  errors.periodCount
+                    ? { message: errors.periodCount }
+                    : undefined,
+                ]}
+              />
             </Field>
           </div>
           <div className='grid grid-cols-2 gap-3'>
@@ -154,18 +177,22 @@ export default function NewProjectPage(): ReactElement {
                 value={startDate}
                 onChange={setStartDate}
               />
-              <FieldError errors={[errors.startDate ? { message: errors.startDate } : undefined]} />
+              <FieldError
+                errors={[
+                  errors.startDate ? { message: errors.startDate } : undefined,
+                ]}
+              />
             </Field>
             <Field data-invalid={Boolean(errors.endDate)}>
               <FieldLabel htmlFor='rp-end'>
                 {t('resourcePlanning.form.endDate')}
               </FieldLabel>
-              <DatePicker
-                id='rp-end'
-                value={endDate}
-                onChange={setEndDate}
+              <DatePicker id='rp-end' value={endDate} onChange={setEndDate} />
+              <FieldError
+                errors={[
+                  errors.endDate ? { message: errors.endDate } : undefined,
+                ]}
               />
-              <FieldError errors={[errors.endDate ? { message: errors.endDate } : undefined]} />
             </Field>
           </div>
         </FieldGroup>

@@ -10,12 +10,13 @@ import {
   listResponse,
   type AppApiRouteContribution,
 } from '@nocobase/app-server';
-import { authorizationToken, type AuthorizationEnv } from '@nocobase/app-plugin-authorization/server';
-import { authenticationToken } from '@nocobase/app-plugin-authentication';
 import {
-  databaseManagerToken,
-  type Repository,
-} from '@nocobase/db';
+  authorizationToken,
+  type AuthorizationEnv,
+} from '@nocobase/app-plugin-authorization/server';
+import { authenticationToken } from '@nocobase/app-plugin-authentication';
+import { idGeneratorToken } from '@nocobase/app-server/id-generator';
+import { databaseManagerToken, type Repository } from '@nocobase/db';
 import { type Application } from '@nocobase/app-server';
 import { Hono, type Context } from 'hono';
 import { z } from 'zod';
@@ -42,7 +43,10 @@ export interface CompareRow {
   readonly endDate: string;
   readonly schedule: readonly number[];
   readonly cumulative: readonly number[];
-  readonly labor: readonly { readonly trade: string; readonly periods: readonly number[] }[];
+  readonly labor: readonly {
+    readonly trade: string;
+    readonly periods: readonly number[];
+  }[];
 }
 
 export const CompareRowSchema = z
@@ -55,7 +59,9 @@ export const CompareRowSchema = z
     endDate: z.string(),
     schedule: z.array(z.number()),
     cumulative: z.array(z.number()),
-    labor: z.array(z.object({ trade: z.string(), periods: z.array(z.number()) })),
+    labor: z.array(
+      z.object({ trade: z.string(), periods: z.array(z.number()) }),
+    ),
   })
   .meta({ ref: 'ResourcePlanningCompareRow' });
 
@@ -102,11 +108,11 @@ export const CreateResourceProjectInput = z.strictObject({
     .min(1)
     .max(1200)
     .meta({ description: 'The number of periods the total is split across.' }),
-  startDate: z
-    .iso.date()
+  startDate: z.iso
+    .date()
     .meta({ description: 'The first period, as a calendar date.' }),
-  endDate: z
-    .iso.date()
+  endDate: z.iso
+    .date()
     .meta({ description: 'The last period, as a calendar date.' }),
 });
 
@@ -129,13 +135,15 @@ export const UpdateResourceProjectInput = z.strictObject({
     .min(1)
     .max(1200)
     .optional()
-    .meta({ description: 'The new number of periods; the schedule is re-split.' }),
-  startDate: z
-    .iso.date()
+    .meta({
+      description: 'The new number of periods; the schedule is re-split.',
+    }),
+  startDate: z.iso
+    .date()
     .optional()
     .meta({ description: 'The new first-period date.' }),
-  endDate: z
-    .iso.date()
+  endDate: z.iso
+    .date()
     .optional()
     .meta({ description: 'The new last-period date.' }),
 });
@@ -165,14 +173,10 @@ export const OverrideLaborInput = z.strictObject({
     .int()
     .min(0)
     .meta({ description: 'The period the override applies to, from 0.' }),
-  value: z
-    .number()
-    .nonnegative()
-    .nullable()
-    .meta({
-      description:
-        'The headcount to pin; null clears the override and falls back to the quota.',
-    }),
+  value: z.number().nonnegative().nullable().meta({
+    description:
+      'The headcount to pin; null clears the override and falls back to the quota.',
+  }),
 });
 
 export const ResourceProjectViewSchema = ResourceProjectSchema.extend({
@@ -204,7 +208,12 @@ export const LaborTradeSchema = z
   .meta({ ref: 'LaborTrade' });
 
 export const CreateLaborTradeInput = z.strictObject({
-  name: z.string().trim().min(1).max(100).meta({ description: 'The trade name.' }),
+  name: z
+    .string()
+    .trim()
+    .min(1)
+    .max(100)
+    .meta({ description: 'The trade name.' }),
   unitQuota: z
     .number()
     .nonnegative()
@@ -212,8 +221,18 @@ export const CreateLaborTradeInput = z.strictObject({
 });
 
 export const UpdateLaborTradeInput = z.strictObject({
-  name: z.string().trim().min(1).max(100).optional().meta({ description: 'The new trade name.' }),
-  unitQuota: z.number().nonnegative().optional().meta({ description: 'The new quota.' }),
+  name: z
+    .string()
+    .trim()
+    .min(1)
+    .max(100)
+    .optional()
+    .meta({ description: 'The new trade name.' }),
+  unitQuota: z
+    .number()
+    .nonnegative()
+    .optional()
+    .meta({ description: 'The new quota.' }),
 });
 
 export const LaborTradeParams = z.object({ tradeId: z.string() });
@@ -231,6 +250,7 @@ export const resourcePlanningRoutes: AppApiRouteContribution<Application> =
     const auth = app.container.resolve(authenticationToken);
     const authorization = app.container.resolve(authorizationToken);
     const database = app.container.resolve(databaseManagerToken);
+    const idGenerator = app.container.resolve(idGeneratorToken);
 
     const { projects, trades } = resourcePlanningRepositories(database);
 
@@ -247,8 +267,13 @@ export const resourcePlanningRoutes: AppApiRouteContribution<Application> =
       c: Context<AuthorizationEnv>,
       action: 'read' | 'create' | 'update' | 'delete',
     ): Promise<Repository<ResourceProject>> {
-      const ref = { type: 'database.collection', id: 'resourceProjects' } as const;
-      const decision = await c.get('authz').authorize({ resource: ref, action });
+      const ref = {
+        type: 'database.collection',
+        id: 'resourceProjects',
+      } as const;
+      const decision = await c
+        .get('authz')
+        .authorize({ resource: ref, action });
       if (decision.effect === 'deny')
         throw new ApiError({
           status: 'PERMISSION_DENIED',
@@ -270,31 +295,34 @@ export const resourcePlanningRoutes: AppApiRouteContribution<Application> =
           domain: 'resourcePlanning',
           message: `The caller may not ${action} a resource project.`,
         });
-      const open = conditions.scope;
+      // The decision's conditions carry the operation's row scope (a data
+      // scope, or `true` for the unrestricted root). The named operation is
+      // open across those rows, and so is a read (the detail and list views
+      // of a granted record need it). The write operations stay closed:
+      // an action that does not grant them refuses the write, not the
+      // record itself.
+      const scope = conditions.scope;
       const fields =
         conditions.fields &&
-        (Array.isArray(conditions.fields) || typeof conditions.fields === 'string')
+        (Array.isArray(conditions.fields) ||
+          typeof conditions.fields === 'string')
           ? conditions.fields
-          : action === 'create'
-            ? undefined
-            : false;
+          : undefined;
+      // A read node without `fields` (the unrestricted root's policy, or a
+      // data-scope check that names only rows) leaves every field
+      // readable; one that names fields is an allowlist.
+      const readNode: unknown = fields ? { scope, fields } : { scope };
+      const node = (nodeFields?: unknown): unknown =>
+        nodeFields ? { scope, fields: nodeFields } : { scope };
       const policy = {
-        read: action === 'read' ? { scope: open } : false,
-        create:
-          action === 'create'
-            ? { scope: open, ...(fields ? { fields } : {}) }
-            : false,
-        update:
-          action === 'update'
-            ? {
-                scope: open,
-                ...(fields ? { fields } : {}),
-                relations: (conditions.relations ?? false) as never,
-              }
-            : false,
-        delete: action === 'delete' ? { scope: open } : false,
+        read: readNode,
+        create: action === 'create' ? node(fields) : false,
+        update: action === 'update' ? node(fields) : false,
+        delete: action === 'delete' ? node() : false,
       } as never;
-      return projects.withPolicy(policy) as unknown as Repository<ResourceProject>;
+      return projects.withPolicy(
+        policy,
+      ) as unknown as Repository<ResourceProject>;
     }
 
     async function projectView(record: ResourceProject) {
@@ -337,6 +365,55 @@ export const resourcePlanningRoutes: AppApiRouteContribution<Application> =
         return c.json({ data: rows, meta: { total: rows.length } });
       },
     );
+
+    // --- Multi-project compare ---
+
+    router.get(
+      '/resourceProjects/compare',
+      auth.required(),
+      authorization.middleware(),
+      describeRoute({
+        tags: ['Resource Planning'],
+        summary: 'Compare several projects side by side',
+        operationId: 'compareResourceProjects',
+        responses: {
+          '200': dataResponse(CompareProjectsResponse),
+          ...apiErrorResponses,
+        },
+      }),
+      apiValidator('query', CompareProjectsQuery),
+      async (context) => {
+        const c = context as unknown as Context<AuthorizationEnv>;
+        const { ids } = context.req.valid('query');
+        const wanted = ids
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean);
+        if (wanted.length === 0 || wanted.length > 50)
+          throw new ApiError({
+            status: 'INVALID_ARGUMENT',
+            reason: 'COMPARE_LIMIT',
+            domain: 'resourcePlanning',
+            message: 'Compare between 1 and 50 projects by their ids.',
+          });
+        const repo = await projectFor(c, 'read');
+        const records = await Promise.all(
+          wanted.map((id) => repo.findOne({ filter: { id } })),
+        );
+        const found = records.filter(
+          (r): r is ResourceProject => r !== undefined,
+        );
+        const views = await Promise.all(found.map((r) => projectView(r)));
+        return c.json({
+          data: {
+            projects: views,
+            labels: found.map((r) => periodLabel(0, r.startDate)),
+          },
+        });
+      },
+    );
+
+    // --- Project detail ---
 
     router.get(
       '/resourceProjects/:projectId',
@@ -389,8 +466,10 @@ export const resourcePlanningRoutes: AppApiRouteContribution<Application> =
         const input = context.req.valid('json');
         const repo = await projectFor(c, 'create');
         const { totalQuantity, periodCount, startDate, endDate, name } = input;
-        const record = await repo.createOne({
+        const id = idGenerator.generateString();
+        const result = await repo.createOne({
           values: {
+            id,
             name,
             totalQuantity,
             periodCount,
@@ -399,7 +478,15 @@ export const resourcePlanningRoutes: AppApiRouteContribution<Application> =
             schedule: evenSchedule(totalQuantity, periodCount),
           },
         });
-        return c.json({ data: record.record ?? record }, 201);
+        // The record's own `id` travels through the create's return
+        // selection (the policy's output scope is the operation's scope),
+        // so carry it from the id the write named when it is missing.
+        return c.json(
+          {
+            data: { ...result.record, id: (result.record?.id as string) ?? id },
+          },
+          201,
+        );
       },
     );
 
@@ -440,12 +527,19 @@ export const resourcePlanningRoutes: AppApiRouteContribution<Application> =
         if (input.name !== undefined) values.name = input.name;
         if (input.startDate !== undefined) values.startDate = input.startDate;
         if (input.endDate !== undefined) values.endDate = input.endDate;
-        if (input.totalQuantity !== undefined) values.totalQuantity = totalQuantity;
+        if (input.totalQuantity !== undefined)
+          values.totalQuantity = totalQuantity;
         if (input.periodCount !== undefined) values.periodCount = periodCount;
-        if (input.totalQuantity !== undefined || input.periodCount !== undefined)
+        if (
+          input.totalQuantity !== undefined ||
+          input.periodCount !== undefined
+        )
           values.schedule = evenSchedule(totalQuantity, periodCount);
-        const result = await repo.updateOne({ filter: { id: projectId }, values });
-        return c.json({ data: result.record ?? (result as { record?: ResourceProject }) });
+        const result = await repo.updateOne({
+          filter: { id: projectId },
+          values,
+        });
+        return c.json({ data: result.record });
       },
     );
 
@@ -508,7 +602,7 @@ export const resourcePlanningRoutes: AppApiRouteContribution<Application> =
           filter: { id: projectId },
           values: { schedule: next },
         });
-        return c.json({ data: result.record ?? record });
+        return c.json({ data: result.record });
       },
     );
 
@@ -549,8 +643,10 @@ export const resourcePlanningRoutes: AppApiRouteContribution<Application> =
             message: `Period ${input.index} is not in the schedule.`,
           });
         const overrides =
-          (record.laborOverrides as Record<string, Record<string, number | null>> | null) ??
-          {};
+          (record.laborOverrides as Record<
+            string,
+            Record<string, number | null>
+          > | null) ?? {};
         overrides[input.trade] = {
           ...(overrides[input.trade] ?? {}),
           [String(input.index)]: input.value,
@@ -559,65 +655,25 @@ export const resourcePlanningRoutes: AppApiRouteContribution<Application> =
           filter: { id: projectId },
           values: { laborOverrides: overrides },
         });
-        return c.json({ data: result.record ?? record });
-      },
-    );
-
-    // --- Multi-project compare ---
-
-    router.get(
-      '/resourceProjects/compare',
-      auth.required(),
-      authorization.middleware(),
-      describeRoute({
-        tags: ['Resource Planning'],
-        summary: 'Compare several projects side by side',
-        operationId: 'compareResourceProjects',
-        responses: {
-          '200': dataResponse(CompareProjectsResponse),
-          ...apiErrorResponses,
-        },
-      }),
-      apiValidator('query', CompareProjectsQuery),
-      async (context) => {
-        const c = context as unknown as Context<AuthorizationEnv>;
-        const { ids } = context.req.valid('query');
-        const wanted = ids
-          .split(',')
-          .map((s) => s.trim())
-          .filter(Boolean);
-        if (wanted.length === 0 || wanted.length > 50)
-          throw new ApiError({
-            status: 'INVALID_ARGUMENT',
-            reason: 'COMPARE_LIMIT',
-            domain: 'resourcePlanning',
-            message: 'Compare between 1 and 50 projects by their ids.',
-          });
-        const repo = await projectFor(c, 'read');
-        const records = await Promise.all(
-          wanted.map((id) => repo.findOne({ filter: { id } })),
-        );
-        const found = records.filter((r): r is ResourceProject => r !== undefined);
-        const views = await Promise.all(found.map((r) => projectView(r)));
-        return c.json({
-          data: {
-            projects: views,
-            labels: found.map((r) => periodLabel(0, r.startDate)),
-          },
-        });
+        return c.json({ data: result.record });
       },
     );
 
     // --- Trade quotas ---
 
     const tradeSettings = 'resourcePlanning.tradeQuotas';
-    async function tradesFor(c: Context<AuthorizationEnv>, action: 'read' | 'create' | 'update' | 'delete') {
-      // Reading needs only a signed-in session; writing needs the settings
-      // grant, which `require` enforces with a 403 before any input.
+    async function tradesFor(
+      c: Context<AuthorizationEnv>,
+      action: 'read' | 'create' | 'update' | 'delete',
+    ) {
+      // Reading needs only a signed-in session. The settings item declares
+      // `read` and `update`; create and delete both ride on `update`, since
+      // the table is a fixed shared catalog maintained through one surface.
       if (action !== 'read')
         await c.get('authz').require({
           resource: { type: 'settings', id: tradeSettings },
-          action,
+          action:
+            action === 'create' || action === 'delete' ? 'update' : action,
         });
       return trades;
     }
@@ -700,10 +756,20 @@ export const resourcePlanningRoutes: AppApiRouteContribution<Application> =
             domain: 'resourcePlanning',
             message: `A trade named ${input.name} already exists.`,
           });
+        const id = idGenerator.generateString();
         const result = await repo.createOne({
-          values: { name: input.name, unitQuota: input.unitQuota },
+          values: {
+            id,
+            name: input.name,
+            unitQuota: input.unitQuota,
+          },
         });
-        return c.json({ data: result.record ?? (result as { record?: LaborTrade }) }, 201);
+        return c.json(
+          {
+            data: { ...result.record, id: (result.record?.id as string) ?? id },
+          },
+          201,
+        );
       },
     );
 
@@ -749,8 +815,11 @@ export const resourcePlanningRoutes: AppApiRouteContribution<Application> =
           values.name = input.name;
         }
         if (input.unitQuota !== undefined) values.unitQuota = input.unitQuota;
-        const result = await repo.updateOne({ filter: { id: tradeId }, values });
-        return c.json({ data: result.record ?? record });
+        const result = await repo.updateOne({
+          filter: { id: tradeId },
+          values,
+        });
+        return c.json({ data: result.record });
       },
     );
 

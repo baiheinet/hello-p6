@@ -1,20 +1,11 @@
 import { useTranslation } from '@nocobase/i18n/client';
-import {
-  type ReactElement,
-  useMemo,
-  useState,
-} from 'react';
+import { type ReactElement, type FocusEvent, useMemo, useState } from 'react';
 import { useParams } from 'react-router';
 import ReactECharts from 'echarts-for-react';
 
 import { PageContainer } from '#components/page-container';
 import { PageHeader } from '#components/page-header';
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '#components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '#components/ui/card';
 import {
   Table,
   TableBody,
@@ -86,14 +77,20 @@ function Shell({
   );
 }
 
-function SCurveCard({ view }: { readonly view: ResourceProjectView }): ReactElement {
+function SCurveCard({
+  view,
+}: {
+  readonly view: ResourceProjectView;
+}): ReactElement {
   const { t } = useTranslation();
   const option = useMemo(
     () => ({
       grid: { left: 48, right: 24, top: 32, bottom: 32 },
       xAxis: {
         type: 'category',
-        data: view.schedule.map((_, index) => periodLabel(index, view.startDate)),
+        data: view.schedule.map((_, index) =>
+          periodLabel(index, view.startDate),
+        ),
       },
       yAxis: { type: 'value' },
       tooltip: { trigger: 'axis' },
@@ -121,11 +118,29 @@ function SCurveCard({ view }: { readonly view: ResourceProjectView }): ReactElem
   );
 }
 
-function ScheduleSection({ view }: { readonly view: ResourceProjectView }): ReactElement {
+function ScheduleSection({
+  view,
+}: {
+  readonly view: ResourceProjectView;
+}): ReactElement {
   const { t } = useTranslation();
   const adjust = useAdjustPeriod();
-  const [draft, setDraft] = useState<{ index: number; value: string } | null>(null);
+  const [draft, setDraft] = useState<{ index: number; value: string } | null>(
+    null,
+  );
   const [saving, setSaving] = useState(false);
+
+  const handleApply = () => {
+    if (!draft) return;
+    const value = Number(draft.value);
+    if (Number.isNaN(value) || value < 0) return;
+    setSaving(true);
+    void adjust(view.id, draft.index, value).finally(() => {
+      setSaving(false);
+      setDraft(null);
+    });
+  };
+
   const rows = view.schedule.map((quantity, index) => ({
     index,
     quantity,
@@ -170,17 +185,7 @@ function ScheduleSection({ view }: { readonly view: ResourceProjectView }): Reac
                         variant='ghost'
                         size='sm'
                         disabled={saving}
-                        onClick={async () => {
-                          const value = Number(draft.value);
-                          if (Number.isNaN(value) || value < 0) return;
-                          setSaving(true);
-                          try {
-                            await adjust(view.id, index, value);
-                          } finally {
-                            setSaving(false);
-                          }
-                          setDraft(null);
-                        }}
+                        onClick={handleApply}
                       >
                         {t('resourcePlanning.apply')}
                       </Button>
@@ -188,7 +193,9 @@ function ScheduleSection({ view }: { readonly view: ResourceProjectView }): Reac
                       <Button
                         variant='ghost'
                         size='sm'
-                        onClick={() => setDraft({ index, value: String(quantity) })}
+                        onClick={() =>
+                          setDraft({ index, value: String(quantity) })
+                        }
                       >
                         {t('resourcePlanning.adjust')}
                       </Button>
@@ -205,11 +212,30 @@ function ScheduleSection({ view }: { readonly view: ResourceProjectView }): Reac
   );
 }
 
-function LaborSection({ view }: { readonly view: ResourceProjectView }): ReactElement {
+function LaborSection({
+  view,
+}: {
+  readonly view: ResourceProjectView;
+}): ReactElement {
   const { t } = useTranslation();
   const override = useOverrideLabor();
-  const [editing, setEditing] = useState<{ trade: string; index: number } | null>(null);
+  const [editing, setEditing] = useState<{
+    trade: string;
+    index: number;
+  } | null>(null);
   const [saving, setSaving] = useState(false);
+
+  const handleBlur = (event: FocusEvent<HTMLInputElement>) => {
+    if (!editing) return;
+    const parsed =
+      event.target.value === '' ? null : Number(event.target.value);
+    setSaving(true);
+    void override(view.id, editing.trade, editing.index, parsed).finally(() => {
+      setSaving(false);
+      setEditing(null);
+    });
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -248,19 +274,7 @@ function LaborSection({ view }: { readonly view: ResourceProjectView }): ReactEl
                             defaultValue={value}
                             autoFocus
                             disabled={saving}
-                            onBlur={async (event) => {
-                              const parsed =
-                                event.target.value === ''
-                                  ? null
-                                  : Number(event.target.value);
-                              setSaving(true);
-                              try {
-                                await override(view.id, trade, index, parsed);
-                              } finally {
-                                setSaving(false);
-                              }
-                              setEditing(null);
-                            }}
+                            onBlur={handleBlur}
                             className='w-20 rounded border border-input px-2 py-1'
                           />
                         ) : (

@@ -25,12 +25,10 @@ export function useProjects() {
       })
       .then(
         ({ data }) => {
-          if (!controller.signal.aborted)
-            setResult({ data, loading: false });
+          if (!controller.signal.aborted) setResult({ data, loading: false });
         },
         (error: unknown) => {
-          if (!controller.signal.aborted)
-            setResult({ error, loading: false });
+          if (!controller.signal.aborted) setResult({ error, loading: false });
         },
       );
     return () => controller.abort();
@@ -45,10 +43,11 @@ export function useProjectView(projectId: string) {
     data?: ResourceProjectView;
     error?: unknown;
     loading: boolean;
-  }>({ loading: true });
+    key: string;
+  }>({ key: '', loading: false });
   useEffect(() => {
+    if (!projectId) return;
     const controller = new AbortController();
-    setResult({ loading: true });
     api
       .request<{ data: ResourceProjectView }>({
         path: `resourceProjects/${encodeURIComponent(projectId)}`,
@@ -57,16 +56,21 @@ export function useProjectView(projectId: string) {
       .then(
         ({ data }) => {
           if (!controller.signal.aborted)
-            setResult({ data, loading: false });
+            setResult({ data, loading: false, key: projectId });
         },
         (error: unknown) => {
           if (!controller.signal.aborted)
-            setResult({ error, loading: false });
+            setResult({ error, loading: false, key: projectId });
         },
       );
     return () => controller.abort();
   }, [api, projectId]);
-  return result;
+  const loading = result.key !== projectId || result.loading;
+  return {
+    data: loading ? undefined : result.data,
+    error: loading ? undefined : result.error,
+    loading,
+  };
 }
 
 /** Loads the shared trade quotas. */
@@ -86,12 +90,10 @@ export function useTrades() {
       })
       .then(
         ({ data }) => {
-          if (!controller.signal.aborted)
-            setResult({ data, loading: false });
+          if (!controller.signal.aborted) setResult({ data, loading: false });
         },
         (error: unknown) => {
-          if (!controller.signal.aborted)
-            setResult({ error, loading: false });
+          if (!controller.signal.aborted) setResult({ error, loading: false });
         },
       );
     return () => controller.abort();

@@ -4,7 +4,7 @@ const migration: MigrationDefinition = defineMigration({
   name: '202611170002_create_labor_trades',
   async up({ builder }) {
     await builder.createCollection('laborTrades', (collection) => {
-      collection.increments('id');
+      collection.string('id', { length: 64 }).notNull().primary();
       collection.string('name', { length: 100 }).notNull().unique();
       // Workforce per unit of quantity (people); one global shared table.
       collection.float('unitQuota', { defaultValue: 0 }).notNull();
