@@ -477,7 +477,7 @@ export const resourcePlanningRoutes: AppApiRouteContribution<Application> =
         // so carry it from the id the write named when it is missing.
         return c.json(
           {
-            data: { ...result.record, id: result.record?.id ?? id },
+            data: { ...result.record, id: (result.record?.id as string) ?? id },
           },
           201,
         );
@@ -759,7 +759,7 @@ export const resourcePlanningRoutes: AppApiRouteContribution<Application> =
         });
         return c.json(
           {
-            data: { ...result.record, id: result.record?.id ?? id },
+            data: { ...result.record, id: (result.record?.id as string) ?? id },
           },
           201,
         );
