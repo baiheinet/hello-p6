@@ -45,6 +45,7 @@ export function useProjectView(projectId: string) {
     loading: boolean;
     key: string;
   }>({ key: '', loading: false });
+  const [reloadKey, setReloadKey] = useState(0);
   useEffect(() => {
     if (!projectId) return;
     const controller = new AbortController();
@@ -64,12 +65,16 @@ export function useProjectView(projectId: string) {
         },
       );
     return () => controller.abort();
-  }, [api, projectId]);
+  }, [api, projectId, reloadKey]);
+  const reload = useCallback(() => {
+    setReloadKey((value) => value + 1);
+  }, []);
   const loading = result.key !== projectId || result.loading;
   return {
     data: loading ? undefined : result.data,
     error: loading ? undefined : result.error,
     loading,
+    reload,
   };
 }
 

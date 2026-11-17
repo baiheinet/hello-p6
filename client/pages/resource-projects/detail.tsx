@@ -23,7 +23,12 @@ import type { ResourceProjectView } from './types.js';
 export default function ProjectDetailPage(): ReactElement {
   const { projectId } = useParams();
   const { t } = useTranslation();
-  const { data: view, error, loading } = useProjectView(projectId ?? '');
+  const {
+    data: view,
+    error,
+    loading,
+    reload,
+  } = useProjectView(projectId ?? '');
 
   if (error)
     return (
@@ -44,9 +49,9 @@ export default function ProjectDetailPage(): ReactElement {
 
   return (
     <Shell view={view}>
-      <ScheduleSection view={view} />
+      <ScheduleSection view={view} onSaved={reload} />
       <SCurveCard view={view} />
-      <LaborSection view={view} />
+      <LaborSection view={view} onSaved={reload} />
     </Shell>
   );
 }
@@ -120,8 +125,10 @@ function SCurveCard({
 
 function ScheduleSection({
   view,
+  onSaved,
 }: {
   readonly view: ResourceProjectView;
+  readonly onSaved: () => void;
 }): ReactElement {
   const { t } = useTranslation();
   const adjust = useAdjustPeriod();
@@ -138,6 +145,7 @@ function ScheduleSection({
     void adjust(view.id, draft.index, value).finally(() => {
       setSaving(false);
       setDraft(null);
+      onSaved();
     });
   };
 
@@ -214,8 +222,10 @@ function ScheduleSection({
 
 function LaborSection({
   view,
+  onSaved,
 }: {
   readonly view: ResourceProjectView;
+  readonly onSaved: () => void;
 }): ReactElement {
   const { t } = useTranslation();
   const override = useOverrideLabor();
@@ -233,6 +243,7 @@ function LaborSection({
     void override(view.id, editing.trade, editing.index, parsed).finally(() => {
       setSaving(false);
       setEditing(null);
+      onSaved();
     });
   };
 

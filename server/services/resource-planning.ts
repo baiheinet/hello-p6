@@ -55,15 +55,25 @@ export function cumulativeSeries(schedule: readonly number[]): number[] {
 
 /**
  * Splits the total quantity evenly across `count` periods. When it does not
- * divide evenly, the first `remainder` periods carry one extra unit, so the
- * values sum to the total exactly.
+ * divide evenly, the earlier periods carry one extra unit and the last
+ * period absorbs the remainder, so the values sum to the total exactly even
+ * for fractional totals.
  */
 export function evenSchedule(total: number, count: number): number[] {
   if (count < 1) return [];
   const base = Math.floor(total / count);
   const remainder = total - base * count;
   const values = new Array<number>(count).fill(base);
-  for (let index = 0; index < remainder; index += 1) values[index] += 1;
+  let claimed = 0;
+  for (let index = 0; index < count; index += 1) {
+    if (index === count - 1) {
+      values[index] = total - claimed;
+    } else {
+      const value = base + (index < remainder ? 1 : 0);
+      values[index] = value;
+      claimed += value;
+    }
+  }
   return values;
 }
 
