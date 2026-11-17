@@ -2,11 +2,19 @@ import databaseExplorerRoutes from './pages/settings/database-explorer/routes.js
 import { createAppClientConfig } from '@nocobase/app-client';
 import { readAppClientRuntimeConfig } from '@nocobase/app-client/runtime';
 import { includeNotificationTemplateRoutes } from './pages/settings/notification-routes.js';
-import { Home } from 'lucide-react';
+import {
+  BarChart3Icon,
+  HammerIcon,
+  Home,
+  ListTreeIcon,
+  PlusIcon,
+  Rows3Icon,
+} from 'lucide-react';
 import settingsShellRoutes from './pages/settings/shell-routes.js';
 import {
   defineAppRoutes,
   type AppClientRouteContribution,
+  type AppClientRouteDefinition,
 } from '@nocobase/app-client/plugins';
 
 const appRoutes: AppClientRouteContribution = defineAppRoutes([
@@ -66,6 +74,66 @@ const appRoutes: AppClientRouteContribution = defineAppRoutes([
     componentLoader: () => import('./pages/auth/device.js'),
     name: 'device',
     path: '/device',
+  },
+  // The resource-planning module: a business page whose endpoints check a
+  // database.collection grant on `resourceProjects`, plus one settings page
+  // gated on the trade-quota settings item.
+  {
+    name: 'resourcePlanning',
+    path: '/resource-planning',
+    auth: 'required',
+    authz: { resource: { type: 'page', id: 'resourcePlanning' }, action: 'access' },
+    navigation: { title: 'navigation.resourcePlanning', icon: HammerIcon },
+    componentLoader: () => import('./pages/resource-planning/index.js'),
+  },
+  {
+    name: 'resourceProjects',
+    path: '/resource-projects',
+    auth: 'required',
+    authz: { resource: { type: 'page', id: 'resourceProjects' }, action: 'access' },
+    navigation: {
+      title: 'navigation.resourceProjects',
+      description: 'navigation.resourceProjectsDescription',
+      icon: ListTreeIcon,
+    },
+    componentLoader: () => import('./pages/resource-projects/index.js'),
+    children: [
+      {
+        name: 'resourceProjectNew',
+        path: 'new',
+        authz: { resource: { type: 'page', id: 'resourceProjects' }, action: 'access' },
+        presentation: { kind: 'dialog', title: 'resourcePlanning.newProjectTitle' },
+        componentLoader: () => import('./pages/resource-projects/new.js'),
+      },
+      {
+        name: 'resourceProjectCompare',
+        path: 'compare',
+        authz: { resource: { type: 'page', id: 'resourceProjects' }, action: 'access' },
+        navigation: { title: 'navigation.resourceCompare', icon: Rows3Icon },
+        componentLoader: () => import('./pages/resource-projects/compare.js'),
+      },
+      {
+        name: 'resourceProjectDetail',
+        path: ':projectId',
+        authz: { resource: { type: 'page', id: 'resourceProjects' }, action: 'access' },
+        componentLoader: () => import('./pages/resource-projects/detail.js'),
+      },
+    ],
+  },
+  {
+    name: 'resourceTradeQuotas',
+    path: '/resource-planning/trades',
+    auth: 'required',
+    authz: {
+      resource: { type: 'settings', id: 'resourcePlanning.tradeQuotas' },
+      action: 'read',
+    },
+    navigation: {
+      title: 'navigation.resourceTradeQuotas',
+      description: 'navigation.resourceTradeQuotasDescription',
+      icon: BarChart3Icon,
+    },
+    componentLoader: () => import('./pages/resource-planning/trades.js'),
   },
 ]);
 
