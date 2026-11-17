@@ -4,7 +4,7 @@ import {
 } from '@nocobase/app-plugin-authentication/testing';
 import { userAdministrationServiceToken } from '@nocobase/app-plugin-authentication/server';
 import { createAppTest } from '@nocobase/app-testing/server';
-import { expect, it } from 'vitest';
+import { expect } from 'vitest';
 
 import { createStandaloneServer } from '../../server/standalone.js';
 
@@ -91,7 +91,7 @@ test('denies a plain member and allows the administrator', async ({
 
   for (const path of ['/resourceProjects', '/resourceProjects/compare?ids=1']) {
     const list = await memberFetch(path);
-    expect(list.status, path).toBe(403);
+    expect(list.status).toBe(403);
   }
   const write = await memberFetch('/resourceProjects', {
     method: 'POST',
