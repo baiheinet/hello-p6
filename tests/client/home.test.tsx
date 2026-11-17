@@ -252,6 +252,18 @@ describe('home workbench', () => {
     expect(
       await screen.findByText(enUS.home.overview.unavailable),
     ).toBeVisible();
+    // The stat cards must leave their loading skeletons for a visible placeholder.
+    const overview = screen.getByRole('region', {
+      name: enUS.home.overview.title,
+    });
+    for (const label of [
+      enUS.home.overview.totalProjects,
+      enUS.home.overview.inProgress,
+    ]) {
+      const card = cardOf(label, overview);
+      expect(card).toHaveTextContent('—');
+      expect(card).toHaveTextContent(enUS.home.overview.unavailableValue);
+    }
     expect(screen.getByRole('link', { name: /New project/ })).toHaveAttribute(
       'href',
       '/resource-projects/new',

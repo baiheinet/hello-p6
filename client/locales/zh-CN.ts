@@ -21,6 +21,7 @@ const zhCN: AppResource = {
       recent: '最近更新的项目',
       viewAll: '进入项目列表',
       unavailable: '项目数据暂时不可用，可进入项目列表重试。',
+      unavailableValue: '不可用',
       noProjects: '还没有项目。新建第一个项目，开始规划排产量与劳动力。',
       schedule: '{{start}} 至 {{end}}',
       updatedAt: '更新于 {{date}}',

@@ -28,6 +28,7 @@ const enUS = {
       viewAll: 'Open project list',
       unavailable:
         'Project data is unavailable right now. Open the project list to try again.',
+      unavailableValue: 'Unavailable',
       noProjects:
         'No projects yet. Create the first one to plan its output and workforce.',
       schedule: '{{start}} – {{end}}',

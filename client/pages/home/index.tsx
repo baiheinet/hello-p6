@@ -124,6 +124,9 @@ function OverviewSection({
   const overview: ProjectOverview | undefined = projects
     ? projectOverview(projects, todayIso())
     : undefined;
+  // A denied or failed read leaves the figures unknown: the stat cards say so
+  // instead of staying on their loading skeleton for ever.
+  const unavailable = !loading && !overview;
 
   return (
     <section
@@ -144,6 +147,7 @@ function OverviewSection({
           icon={FolderKanbanIcon}
           label={t('home.overview.totalProjects')}
           loading={loading}
+          unavailable={unavailable}
           value={overview?.total}
         />
         <StatCard
@@ -151,6 +155,7 @@ function OverviewSection({
           hint={t('home.overview.inProgressHint')}
           label={t('home.overview.inProgress')}
           loading={loading}
+          unavailable={unavailable}
           value={overview?.inProgress}
         />
       </div>
@@ -226,13 +231,16 @@ function StatCard({
   value,
   hint,
   loading,
+  unavailable,
 }: {
   readonly icon: LucideIcon;
   readonly label: string;
   readonly value?: number;
   readonly hint?: string;
   readonly loading: boolean;
+  readonly unavailable?: boolean;
 }): ReactElement {
+  const { t } = useTranslation();
   const { locale: language } = useLocale();
   return (
     <Card size='sm'>
@@ -242,8 +250,15 @@ function StatCard({
           {label}
         </CardDescription>
         <CardTitle className='text-3xl font-semibold tracking-tight'>
-          {loading || value === undefined ? (
+          {loading ? (
             <Skeleton className='h-8 w-14' aria-hidden />
+          ) : unavailable || value === undefined ? (
+            <span className='text-muted-foreground'>
+              <span aria-hidden>—</span>
+              <span className='sr-only'>
+                {t('home.overview.unavailableValue')}
+              </span>
+            </span>
           ) : (
             new Intl.NumberFormat(language).format(value)
           )}

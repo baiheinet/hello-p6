@@ -1,5 +1,5 @@
 import { useApiClient } from '@nocobase/app-client';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import type { ResourceProject } from '../resource-projects/types.js';
 
@@ -7,7 +7,6 @@ export interface ProjectOverviewState {
   readonly projects?: readonly ResourceProject[];
   readonly loading: boolean;
   readonly error?: unknown;
-  readonly reload: () => void;
 }
 
 /**
@@ -17,14 +16,13 @@ export interface ProjectOverviewState {
  */
 export function useProjectOverview(enabled: boolean): ProjectOverviewState {
   const api = useApiClient();
-  const [reloadKey, setReloadKey] = useState(0);
   const [result, setResult] = useState<{
     readonly key: string;
     readonly data?: readonly ResourceProject[];
     readonly error?: unknown;
   }>({ key: '' });
 
-  const requestKey = enabled ? `projects:${reloadKey}` : '';
+  const requestKey = enabled ? 'projects' : '';
 
   useEffect(() => {
     if (!enabled) return;
@@ -45,13 +43,10 @@ export function useProjectOverview(enabled: boolean): ProjectOverviewState {
     return () => controller.abort();
   }, [api, enabled, requestKey]);
 
-  const reload = useCallback(() => setReloadKey((value) => value + 1), []);
-
   const current = result.key === requestKey;
   return {
     projects: current ? result.data : undefined,
     error: current ? result.error : undefined,
     loading: enabled && !current,
-    reload,
   };
 }
