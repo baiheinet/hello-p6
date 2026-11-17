@@ -88,6 +88,7 @@ const enUS = {
     adjust: 'Adjust',
     apply: 'Apply',
     compare: 'Compare projects',
+    compareEntry: 'Compare projects',
     compareDescription:
       'Pick several projects to compare their output, S curve and labor demand in one view.',
     compareNeedsSelection:
@@ -109,6 +110,7 @@ const enUS = {
     projectCount_other: '{{count}} projects',
     actionsFor: 'Actions for {{name}}',
     actionOpen: 'Open',
+    actionCompare: 'Compare with other projects',
     actionScurve: 'S curve',
     actionLabor: 'Labor demand',
     form: {

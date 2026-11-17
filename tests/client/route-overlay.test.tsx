@@ -1980,6 +1980,162 @@ describe('a save started without returning its promise', () => {
   });
 });
 
+describe('a create form that marks its values saved on success', () => {
+  // The project create dialog's shape: a FeedbackForm that reports `values` and `savedValues`, where `savedValues`
+  // is the form's blank values at first and becomes the just-saved record on success, so the close and navigation
+  // the save itself starts do not open "Discard changes?".
+  function CreateForm({ fail = false }: { readonly fail?: boolean }) {
+    const navigate = useNavigate();
+    const [values, setValues] = useState({
+      name: '',
+      quantity: '',
+    });
+    const [savedValues, setSavedValues] = useState({
+      name: '',
+      quantity: '',
+    });
+    const [submitting, setSubmitting] = useState(false);
+    const submit = () => {
+      setSubmitting(true);
+      return Promise.resolve()
+        .then(() => new Promise((resolve) => setTimeout(resolve, 10)))
+        .then(() => {
+          if (fail) throw new Error('save failed');
+          setSavedValues({ ...values });
+          void navigate('/projects');
+        })
+        .catch(() => {})
+        .finally(() => setSubmitting(false));
+    };
+    return (
+      <RouteDialog
+        title='Create'
+        footer={
+          <>
+            <Actions />
+            <button
+              type='submit'
+              form='create-form'
+              disabled={submitting || !values.name}
+            >
+              {submitting ? 'Saving…' : 'Create'}
+            </button>
+          </>
+        }
+      >
+        <FeedbackForm
+          id='create-form'
+          submitting={submitting}
+          values={() => values}
+          savedValues={savedValues}
+          onSubmit={submit}
+        >
+          <input
+            aria-label='Name'
+            value={values.name}
+            onChange={(event) =>
+              setValues((old) => ({ ...old, name: event.target.value }))
+            }
+          />
+          <input
+            aria-label='Quantity'
+            value={values.quantity}
+            onChange={(event) =>
+              setValues((old) => ({ ...old, quantity: event.target.value }))
+            }
+          />
+        </FeedbackForm>
+      </RouteDialog>
+    );
+  }
+  function setup(fail = false) {
+    const history: { path?: string } = {};
+    function Probe() {
+      const { pathname, search } = useLocation();
+      useEffect(() => {
+        history.path = `${pathname}${search}`;
+      });
+      return null;
+    }
+    render(
+      <MemoryRouter
+        initialEntries={['/projects', '/projects/new']}
+        initialIndex={1}
+      >
+        <NavigationGuardProvider>
+          <Probe />
+          <Routes>
+            <Route path='/projects' element={<Outlet />}>
+              <Route path='new' element={<CreateForm fail={fail} />} />
+            </Route>
+          </Routes>
+        </NavigationGuardProvider>
+      </MemoryRouter>,
+      { wrapper: I18n },
+    );
+    return history;
+  }
+  beforeEach(() => sessionStorage.clear());
+
+  it('leaves without asking after a successful create', async () => {
+    const history = setup();
+    const name = await screen.findByRole('textbox', { name: 'Name' });
+    await userEvent.type(name, 'Alpha');
+    await userEvent.type(
+      screen.getByRole('textbox', { name: 'Quantity' }),
+      '10',
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Create' }));
+    await waitFor(() => expect(history.path).toBe('/projects'));
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+  });
+
+  it('still asks to discard when the form is genuinely dirty, on Cancel', async () => {
+    const history = setup();
+    const name = await screen.findByRole('textbox', { name: 'Name' });
+    await userEvent.type(name, 'Alpha');
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    const prompt = await screen.findByRole('alertdialog', {
+      name: 'Discard changes?',
+    });
+    await userEvent.click(
+      within(prompt).getByRole('button', { name: 'Keep editing' }),
+    );
+    await waitFor(() => expect(history.path).toBe('/projects/new'));
+    // The overlay kept its input while the question was open.
+    expect(screen.getByRole('textbox', { name: 'Name' })).toHaveValue('Alpha');
+  });
+
+  it('still asks to discard after a failed create', async () => {
+    const history = setup(true);
+    const name = await screen.findByRole('textbox', { name: 'Name' });
+    await userEvent.type(name, 'Alpha');
+    await userEvent.click(screen.getByRole('button', { name: 'Create' }));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    await screen.findByRole('alertdialog', {
+      name: 'Discard changes?',
+    });
+    // The save failed and the form's input is still there: the question keeps it.
+    await userEvent.click(
+      within(screen.getByRole('alertdialog')).getByRole('button', {
+        name: 'Keep editing',
+      }),
+    );
+    await waitFor(() => expect(history.path).toBe('/projects/new'));
+    expect(screen.getByRole('textbox', { name: 'Name' })).toHaveValue('Alpha');
+  });
+
+  it('closes without asking when the form is untouched', async () => {
+    const history = setup();
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Cancel' }),
+    );
+    await waitFor(() => expect(history.path).toBe('/projects'));
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+  });
+});
+
 describe('nested covering child pages', () => {
   let afterLeaving: PromiseWithResolvers<void>;
   beforeEach(() => {

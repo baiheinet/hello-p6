@@ -1,11 +1,5 @@
 import { useTranslation } from '@nocobase/i18n/client';
-import {
-  type FormEvent,
-  type ReactElement,
-  useCallback,
-  useMemo,
-  useState,
-} from 'react';
+import { type ReactElement, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 
 import { FeedbackForm } from '#components/feedback-form';
@@ -36,9 +30,9 @@ export default function NewProjectPage(): ReactElement {
   const [startDate, setStartDate] = useState<Date | undefined>();
   const [endDate, setEndDate] = useState<Date | undefined>();
 
-  // Blank values of the create form: once the project is saved, the form's input equals what is saved, so the
-  // overlay's "Discard changes?" does not open over the navigation the save itself starts.
-  const [saved, setSaved] = useState(false);
+  // The create form's blank values: what the form is filled with at start. On success, `savedValues` becomes the
+  // record just saved, so the form's input matches it and the overlay does not open "Discard changes?" over the
+  // navigation the save itself starts.
   const [savedValues, setSavedValues] = useState<Record<string, unknown>>(
     () => ({
       name: '',
@@ -63,8 +57,9 @@ export default function NewProjectPage(): ReactElement {
     return result;
   }, [name, totalQuantity, periodCount, startDate, endDate, t]);
 
-  // Returns the request's promise, so the enclosing overlay learns its save is running and the navigation it ends
-  // with does not ask to discard the input. A failed save keeps the form dirty: leaving then still asks.
+  // Hands the create request's promise to the form's `onSubmit`, so the enclosing overlay's "Discard changes?"
+  // stays out while the save runs and the close and navigation it ends with. On success `savedValues` becomes the
+  // record just saved, so the form's input matches it. A failed save keeps the form dirty: leaving then still asks.
   const submit = () => {
     if (Object.keys(errors).length) return;
     setSubmitting(true);
@@ -76,7 +71,6 @@ export default function NewProjectPage(): ReactElement {
       endDate: formatDateOnly(endDate),
     })
       .then(({ data }) => {
-        setSaved(true);
         setSavedValues({
           name: data.name,
           totalQuantity: String(data.totalQuantity),
@@ -87,17 +81,8 @@ export default function NewProjectPage(): ReactElement {
         void close();
         void navigate(`../${data.id}`);
       })
-      .catch(() => {})
       .finally(() => setSubmitting(false));
   };
-
-  const handleSubmit = useCallback(
-    (event: FormEvent) => {
-      event.preventDefault();
-      void submit();
-    },
-    [submit],
-  );
 
   return (
     <RouteDialog
@@ -110,7 +95,7 @@ export default function NewProjectPage(): ReactElement {
           </Button>
           <Button
             disabled={submitting || Object.keys(errors).length > 0}
-            onClick={handleSubmit}
+            onClick={() => void submit()}
           >
             {submitting
               ? t('resourcePlanning.saving')
@@ -129,7 +114,7 @@ export default function NewProjectPage(): ReactElement {
           startDate: startDate ? formatDateOnly(startDate) : '',
           endDate: endDate ? formatDateOnly(endDate) : '',
         })}
-        savedValues={undefined}
+        savedValues={savedValues}
         onSubmit={submit}
       >
         <FieldGroup>

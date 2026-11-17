@@ -1,7 +1,8 @@
 import { useTranslation } from '@nocobase/i18n/client';
 import { type ReactElement, type FocusEvent, useMemo, useState } from 'react';
-import { useParams } from 'react-router';
+import { Link, useParams } from 'react-router';
 import ReactECharts from 'echarts-for-react';
+import { Rows3Icon } from 'lucide-react';
 
 import { PageContainer } from '#components/page-container';
 import { PageHeader } from '#components/page-header';
@@ -15,6 +16,8 @@ import {
   TableRow,
 } from '#components/ui/table';
 import { Button } from '#components/ui/button';
+import { useRouteAccess, useRouteTree } from '../../routing/route-context.js';
+import { routeKey } from '../../routing/route-navigation.js';
 
 import { periodLabel } from './labels.js';
 import { useAdjustPeriod, useOverrideLabor, useProjectView } from './api.js';
@@ -64,6 +67,7 @@ function Shell({
   readonly children: ReactElement | ReactElement[];
 }): ReactElement {
   const { t } = useTranslation();
+  const canOpenCompare = useCompareEntryVisible();
   return (
     <PageContainer>
       <PageHeader
@@ -76,10 +80,38 @@ function Shell({
               })
             : undefined
         }
+        actions={
+          canOpenCompare ? (
+            <Button
+              variant='outline'
+              nativeButton={false}
+              render={<Link to='../compare' />}
+            >
+              <Rows3Icon data-icon='inline-start' />
+              {t('resourcePlanning.compareEntry')}
+            </Button>
+          ) : undefined
+        }
       />
       {children}
     </PageContainer>
   );
+}
+
+/**
+ * The compare entry's own access check: the compare route is registered under the `resourceProjects` page, so
+ * it carries the same access as the list and detail pages that host it. A viewer who may not open the module
+ * page sees no entry, and no dead link. While the permission check is still running the entry is hidden.
+ */
+function useCompareEntryVisible(): boolean {
+  const { denied, loading } = useRouteAccess();
+  const routes = useRouteTree();
+  if (loading) return false;
+  const compare = routes
+    .find((route) => route.name === 'resourceProjects')
+    ?.children?.find((child) => child.name === 'resourceProjectCompare');
+  if (!compare) return false;
+  return !denied.has(routeKey(compare));
 }
 
 function SCurveCard({
@@ -263,7 +295,7 @@ function LaborSection({
               <TableRow>
                 <TableHead>{t('resourcePlanning.trade')}</TableHead>
                 {view.schedule.map((_, index) => (
-                  <TableHead key={index}>
+                  <TableHead key={periodLabel(index, view.startDate)}>
                     {periodLabel(index, view.startDate)}
                   </TableHead>
                 ))}
@@ -276,8 +308,9 @@ function LaborSection({
                   {periods.map((value, index) => {
                     const isEditing =
                       editing?.trade === trade && editing.index === index;
+                    const cellKey = `${trade}:${periodLabel(index, view.startDate)}`;
                     return (
-                      <TableCell key={index}>
+                      <TableCell key={cellKey}>
                         {isEditing ? (
                           <input
                             type='number'

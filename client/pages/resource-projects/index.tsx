@@ -2,7 +2,7 @@ import { resolveListState, useApiClient } from '@nocobase/app-client';
 import { useTranslation } from '@nocobase/i18n/client';
 import { useCallback, useEffect, useState, type ReactElement } from 'react';
 import { Link, Outlet } from 'react-router';
-import { PlusIcon } from 'lucide-react';
+import { PlusIcon, Rows3Icon } from 'lucide-react';
 import { type ColumnDef, type Row } from '@tanstack/react-table';
 
 import { PageContainer } from '#components/page-container';
@@ -11,6 +11,8 @@ import { DataTable, DataTableColumnHeader } from '#components/data-table';
 import { ListFeedback } from '#components/list-feedback';
 import { RowActions } from '#components/row-actions';
 import { Button } from '#components/ui/button';
+import { useRouteAccess, useRouteTree } from '../../routing/route-context.js';
+import { routeKey } from '../../routing/route-navigation.js';
 
 import type { ResourceProject } from './types.js';
 
@@ -18,6 +20,7 @@ export default function ResourceProjectsPage(): ReactElement {
   const { t } = useTranslation();
   const request = useProjects();
   const columns = useProjectColumns();
+  const canOpenCompare = useCompareEntryVisible();
   const listState = resolveListState(
     {
       data: request.data?.data,
@@ -34,10 +37,22 @@ export default function ResourceProjectsPage(): ReactElement {
         title={t('resourcePlanning.title')}
         description={t('resourcePlanning.description')}
         actions={
-          <Button nativeButton={false} render={<Link to='new' />}>
-            <PlusIcon data-icon='inline-start' />
-            {t('resourcePlanning.newProject')}
-          </Button>
+          <>
+            {canOpenCompare ? (
+              <Button
+                variant='outline'
+                nativeButton={false}
+                render={<Link to='compare' />}
+              >
+                <Rows3Icon data-icon='inline-start' />
+                {t('resourcePlanning.compareEntry')}
+              </Button>
+            ) : null}
+            <Button nativeButton={false} render={<Link to='new' />}>
+              <PlusIcon data-icon='inline-start' />
+              {t('resourcePlanning.newProject')}
+            </Button>
+          </>
         }
       />
       <ListFeedback state={listState}>
@@ -62,6 +77,23 @@ export default function ResourceProjectsPage(): ReactElement {
       <Outlet />
     </PageContainer>
   );
+}
+
+/**
+ * Whether the "Compare projects" entry may show on this page. The compare route is registered under the
+ * `resourceProjects` page, so it carries the same access as the list and detail pages that host this button.
+ * A viewer who may not open the module page sees no entry, and no dead link. While the permission check is
+ * still running the entry is hidden rather than risked as a dead link.
+ */
+function useCompareEntryVisible(): boolean {
+  const { denied, loading } = useRouteAccess();
+  const routes = useRouteTree();
+  if (loading) return false;
+  const compare = routes
+    .find((route) => route.name === 'resourceProjects')
+    ?.children?.find((child) => child.name === 'resourceProjectCompare');
+  if (!compare) return false;
+  return !denied.has(routeKey(compare));
 }
 
 function useProjects() {
@@ -166,6 +198,7 @@ function useProjectColumns(): ColumnDef<ResourceProject>[] {
 function ProjectActions({ row }: { row: Row<ResourceProject> }): ReactElement {
   const { t } = useTranslation();
   const project = row.original;
+  const canOpenCompare = useCompareEntryVisible();
   return (
     <RowActions
       label={t('resourcePlanning.actionsFor', { name: project.name })}
@@ -179,6 +212,17 @@ function ProjectActions({ row }: { row: Row<ResourceProject> }): ReactElement {
             </Link>
           ),
         },
+        canOpenCompare
+          ? {
+              key: 'compare',
+              label: t('resourcePlanning.actionCompare'),
+              render: (
+                <Link to={`/resource-projects/compare?ids=${project.id}`}>
+                  {t('resourcePlanning.actionCompare')}
+                </Link>
+              ),
+            }
+          : null,
       ]}
     />
   );
