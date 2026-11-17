@@ -48,4 +48,4 @@ Follow the synchronized [page data freshness rules](../skills/nocobase-app-devel
 
 ## Features and extensions
 
-Features and extensions belongs in System settings under the System category, alongside Database Explorer. Use the permission-filtered settings catalog rather than a separate sidebar footer entry. Its detail breadcrumb includes System settings and returns to the filtered catalog. The homepage retains its discovery link.
+Features and extensions belongs in System settings under the System category, alongside Database Explorer. Use the permission-filtered settings catalog rather than a separate sidebar footer entry. Its detail breadcrumb includes System settings and returns to the filtered catalog. The homepage is the application's business workbench and deliberately has no capability discovery link; see [home](home.md).

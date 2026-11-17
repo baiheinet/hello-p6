@@ -339,10 +339,11 @@ describe('app server', () => {
             new Hono().get('/test-runtime', (c) => c.json({ ok: true })),
           ),
         ],
-        serviceProviders: [
-          ...appRuntime.serviceProviders,
-          TestRuntimeApplicationProvider,
-        ],
+        // A plugin-less runtime cannot boot the application providers that
+        // depend on plugin services (resource planning resolves the
+        // authorization plugin), so this test supplies the application-owned
+        // provider it exercises rather than the runtime's real list.
+        serviceProviders: [TestRuntimeApplicationProvider],
       },
       scope,
     );
