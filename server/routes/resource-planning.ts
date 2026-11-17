@@ -461,6 +461,9 @@ export const resourcePlanningRoutes: AppApiRouteContribution<Application> =
         const repo = await projectFor(c, 'create');
         const { totalQuantity, periodCount, startDate, endDate, name } = input;
         const id = idGenerator.generateString();
+        // The workbench lists the most recently touched projects, so a write
+        // records its own timestamps; the collection has no automatic ones.
+        const now = new Date().toISOString();
         const result = await repo.createOne({
           values: {
             id,
@@ -470,6 +473,8 @@ export const resourcePlanningRoutes: AppApiRouteContribution<Application> =
             startDate,
             endDate,
             schedule: evenSchedule(totalQuantity, periodCount),
+            createdAt: now,
+            updatedAt: now,
           },
         });
         // The record's own `id` travels through the create's return
@@ -529,6 +534,7 @@ export const resourcePlanningRoutes: AppApiRouteContribution<Application> =
           input.periodCount !== undefined
         )
           values.schedule = evenSchedule(totalQuantity, periodCount);
+        values.updatedAt = new Date().toISOString();
         const result = await repo.updateOne({
           filter: { id: projectId },
           values,
@@ -594,7 +600,7 @@ export const resourcePlanningRoutes: AppApiRouteContribution<Application> =
         const next = rebalance(schedule, input.index, input.value);
         const result = await repo.updateOne({
           filter: { id: projectId },
-          values: { schedule: next },
+          values: { schedule: next, updatedAt: new Date().toISOString() },
         });
         return c.json({ data: result.record });
       },
@@ -646,7 +652,10 @@ export const resourcePlanningRoutes: AppApiRouteContribution<Application> =
         };
         const result = await repo.updateOne({
           filter: { id: projectId },
-          values: { laborOverrides: overrides },
+          values: {
+            laborOverrides: overrides,
+            updatedAt: new Date().toISOString(),
+          },
         });
         return c.json({ data: result.record });
       },

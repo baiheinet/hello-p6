@@ -8,6 +8,46 @@ const enUS = {
   // `./system/` so a template upgrade can replace it without touching the application's copy below.
   ...systemEnUS,
   ...fileUi,
+  // The home page is this application's business workbench, so its copy
+  // replaces the template's `home` namespace (development guide and
+  // capability prompts) for every viewer. The template keeps its own copy in
+  // `./system/en-US.ts`, which a template upgrade may replace.
+  home: {
+    eyebrow: 'Construction resource planning',
+    title: 'Construction resource workbench',
+    description:
+      'Plan output, follow the S curve and size the workforce for every construction project in one place.',
+    overview: {
+      title: 'Project overview',
+      description:
+        'Figures read from the same project list the projects page shows.',
+      totalProjects: 'Projects',
+      inProgress: 'In progress',
+      inProgressHint: 'Scheduled to cover today.',
+      recent: 'Recently updated',
+      viewAll: 'Open project list',
+      unavailable:
+        'Project data is unavailable right now. Open the project list to try again.',
+      noProjects:
+        'No projects yet. Create the first one to plan its output and workforce.',
+      schedule: '{{start}} – {{end}}',
+      updatedAt: 'Updated {{date}}',
+    },
+    actions: {
+      title: 'Quick actions',
+      description: 'The work this application does, one entry each.',
+      newProject: 'New project',
+      newProjectDescription:
+        'Set the total quantity and periods; the schedule splits evenly.',
+      projects: 'Project list',
+      projectsDescription: 'Open every project and its output plan.',
+    },
+    restricted: {
+      title: 'No business modules are open to you',
+      description:
+        'Ask an administrator to grant access to projects or trade labor quotas, then refresh this page.',
+    },
+  },
   navigation: {
     ...systemEnUS.navigation,
     resourcePlanning: 'Resource planning',
@@ -77,6 +117,8 @@ const enUS = {
       quantityRequired: 'The total quantity must be zero or more.',
       periodCount: 'Periods',
       periodsRequired: 'The project needs at least one period.',
+      startDate: 'Start date',
+      endDate: 'End date',
       datesRequired: 'Pick the start and the end of the schedule.',
       endDateBeforeStart: 'The end date comes before the start.',
       newTrade: 'Trade',

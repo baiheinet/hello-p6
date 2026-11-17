@@ -189,6 +189,15 @@ describe('app client routes', () => {
     expect(pageAuthorizations(resolved.routes)).toEqual([
       { name: 'home', authorizedAs: null },
       { name: 'inbox', authorizedAs: null },
+      { name: 'resourcePlanning', authorizedAs: 'resourcePlanning' },
+      { name: 'resourceProjects', authorizedAs: 'resourceProjects' },
+      { name: 'resourceProjectNew', authorizedAs: 'resourceProjects' },
+      { name: 'resourceProjectCompare', authorizedAs: 'resourceProjects' },
+      { name: 'resourceProjectDetail', authorizedAs: 'resourceProjects' },
+      {
+        name: 'resourceTradeQuotas',
+        authorizedAs: 'settings:resourcePlanning.tradeQuotas',
+      },
       { name: 'settingsHome', authorizedAs: null },
       { name: 'databaseExplorer', authorizedAs: 'database-explorer' },
     ]);
@@ -211,6 +220,15 @@ describe('app client routes', () => {
     expect(pageAuthorizations(built.routes)).toEqual([
       { name: 'home', authorizedAs: null },
       { name: 'inbox', authorizedAs: null },
+      { name: 'resourcePlanning', authorizedAs: 'resourcePlanning' },
+      { name: 'resourceProjects', authorizedAs: 'resourceProjects' },
+      { name: 'resourceProjectNew', authorizedAs: 'resourceProjects' },
+      { name: 'resourceProjectCompare', authorizedAs: 'resourceProjects' },
+      { name: 'resourceProjectDetail', authorizedAs: 'resourceProjects' },
+      {
+        name: 'resourceTradeQuotas',
+        authorizedAs: 'settings:resourcePlanning.tradeQuotas',
+      },
       { name: 'settingsHome', authorizedAs: null },
       { name: 'settingsUsers', authorizedAs: 'user:*' },
       { name: 'settingsUserCreate', authorizedAs: 'user:*' },

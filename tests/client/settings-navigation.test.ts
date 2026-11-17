@@ -226,9 +226,16 @@ describe('System settings navigation', () => {
         ],
       ],
     ]);
+    // The business pages keep their sidebar entries; only the System card above is gated on the mailer.
     expect(
       buildRouteNavigation(routes, new Set()).map(({ route }) => route.name),
-    ).toEqual(['home', 'settingsHome']);
+    ).toEqual([
+      'home',
+      'resourcePlanning',
+      'resourceProjects',
+      'resourceTradeQuotas',
+      'settingsHome',
+    ]);
   });
 });
 

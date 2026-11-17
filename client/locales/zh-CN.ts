@@ -6,6 +6,38 @@ const zhCN: AppResource = {
   // The template's own copy; see `./en-US.ts`.
   ...systemZhCN,
   ...fileUi,
+  // See `./en-US.ts`: the business workbench copy replaces the template's
+  // `home` namespace.
+  home: {
+    eyebrow: '建设工程资源配置',
+    title: '建设工程资源工作台',
+    description: '集中排布各建设工程的排产量、S 曲线与劳动力需求。',
+    overview: {
+      title: '项目概览',
+      description: '数据取自项目列表，与项目页显示的内容一致。',
+      totalProjects: '项目总数',
+      inProgress: '在建项目',
+      inProgressHint: '计划工期覆盖今天。',
+      recent: '最近更新的项目',
+      viewAll: '进入项目列表',
+      unavailable: '项目数据暂时不可用，可进入项目列表重试。',
+      noProjects: '还没有项目。新建第一个项目，开始规划排产量与劳动力。',
+      schedule: '{{start}} 至 {{end}}',
+      updatedAt: '更新于 {{date}}',
+    },
+    actions: {
+      title: '快捷操作',
+      description: '常用业务入口。',
+      newProject: '新建项目',
+      newProjectDescription: '填写工程总量与期数，系统按期均分排产量。',
+      projects: '项目列表',
+      projectsDescription: '查看全部项目及其排产计划。',
+    },
+    restricted: {
+      title: '你还没有可用的业务模块',
+      description: '请联系管理员开通项目或工种定额的页面权限，然后刷新本页。',
+    },
+  },
   navigation: {
     ...systemZhCN.navigation,
     resourcePlanning: '资源计划',
@@ -17,7 +49,8 @@ const zhCN: AppResource = {
   },
   resourcePlanning: {
     title: '资源计划',
-    description: '按期为建设工程排产量，绘制累计 S 曲线，并计算各工种劳动力需求。',
+    description:
+      '按期为建设工程排产量，绘制累计 S 曲线，并计算各工种劳动力需求。',
     projectsEntry: '新建与编辑工程项目及其排产计划。',
     newProject: '新建项目',
     newProjectTitle: '新建项目',
@@ -42,12 +75,15 @@ const zhCN: AppResource = {
     adjust: '调整',
     apply: '应用',
     compare: '项目对比',
-    compareDescription: '选择多个项目，在同一视图对比其排产量、S 曲线与劳动力需求。',
-    compareNeedsSelection: '请先选择至少一个项目；排产量与 S 曲线将按项目分别绘制。',
+    compareDescription:
+      '选择多个项目，在同一视图对比其排产量、S 曲线与劳动力需求。',
+    compareNeedsSelection:
+      '请先选择至少一个项目；排产量与 S 曲线将按项目分别绘制。',
     outputComparison: '每期排产量',
     tables: '表格',
     tradeQuotas: '工种用工定额',
-    tradeQuotasDescription: '单位工程量的共享用工定额。项目各期劳动力需求 = 当期排产量 × 该定额。',
+    tradeQuotasDescription:
+      '单位工程量的共享用工定额。项目各期劳动力需求 = 当期排产量 × 该定额。',
     addTrade: '添加工种',
     manageQuotas: '管理定额',
     loading: '加载中…',
@@ -68,6 +104,8 @@ const zhCN: AppResource = {
       quantityRequired: '工程总量不能小于 0。',
       periodCount: '期数',
       periodsRequired: '至少需要一期。',
+      startDate: '开始日期',
+      endDate: '结束日期',
       datesRequired: '请选择计划开始与结束日期。',
       endDateBeforeStart: '结束日期早于开始日期。',
       newTrade: '工种',

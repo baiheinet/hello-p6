@@ -135,11 +135,19 @@ test('splits the total evenly and keeps it whole after an adjustment', async ({
   const admin = await signIn(testApp, DEFAULT_ADMIN_CREDENTIALS);
   const project = (await createProject((path, init) =>
     admin.fetch(path, init),
-  )) as { id: string; schedule: number[] };
+  )) as {
+    id: string;
+    schedule: number[];
+    createdAt?: string;
+    updatedAt?: string;
+  };
   // 10000 / 10 = 1000 each, matching the issue's acceptance example.
   expect(project.schedule).toHaveLength(10);
   expect(project.schedule.reduce((sum, value) => sum + value, 0)).toBe(10000);
   expect(project.schedule[0]).toBe(1000);
+  // The workbench orders projects by their last write, so a create dates its row.
+  expect(project.createdAt).toBeTruthy();
+  expect(project.updatedAt).toBeTruthy();
 
   const adjusted = await admin.fetch(
     `/resourceProjects/${project.id}/adjustPeriod`,
@@ -153,11 +161,17 @@ test('splits the total evenly and keeps it whole after an adjustment', async ({
     },
   );
   expect(adjusted.status).toBe(200);
-  const next = (await adjusted.json()).data as { schedule: number[] };
+  const next = (await adjusted.json()).data as {
+    schedule: number[];
+    updatedAt?: string;
+  };
   expect(next.schedule[3]).toBe(2500);
   // The remaining 7500 spread over the other nine periods: 833, 833, 834,
   // 834, 834, 834, 834, 834, 834, so the total stays 10000.
   expect(next.schedule.reduce((sum, value) => sum + value, 0)).toBe(10000);
+  expect(Date.parse(next.updatedAt ?? '')).toBeGreaterThanOrEqual(
+    Date.parse(project.updatedAt ?? ''),
+  );
 });
 
 async function createTrade(

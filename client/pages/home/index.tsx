@@ -1,226 +1,386 @@
-import { useTranslation } from '@nocobase/i18n/client';
 import { useCan } from '@nocobase/app-plugin-authorization/client';
-import { CAPABILITY_GUIDE_ACCESS } from '@nocobase/app-plugin-foundation/client';
+import { useLocale, useTranslation } from '@nocobase/i18n/client';
 import {
   ArrowRightIcon,
-  CheckIcon,
-  CopyIcon,
-  MessageSquareTextIcon,
-  SparklesIcon,
-  ShieldCheckIcon,
-  PaperclipIcon,
-  GitBranchIcon,
-  BellIcon,
-  CalendarClockIcon,
-  BotIcon,
+  BarChart3Icon,
+  FolderKanbanIcon,
+  HardHatIcon,
+  HammerIcon,
+  ListTreeIcon,
+  LockKeyholeIcon,
+  PlusIcon,
+  Rows3Icon,
   type LucideIcon,
 } from 'lucide-react';
 import { type ReactElement } from 'react';
 import { Link } from 'react-router';
-import {
-  CAPABILITY_GUIDE_PATH,
-  capabilityPath,
-  createCapabilityCatalog,
-  entryContent,
-  format,
-  guideContent,
-  type CatalogEntry,
-  type GuideContent,
-} from '@nocobase/app-plugin-foundation/capability-guide';
-
-import applicationManifest from '../../../package.json' with { type: 'json' };
 
 import { PageContainer } from '#components/page-container';
-import { Button } from '#components/ui/button';
+import { PageHeader } from '#components/page-header';
+import { RecordLink } from '#components/record-link';
 import {
   Card,
+  CardAction,
+  CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from '#components/ui/card';
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '#components/ui/empty';
+import { Skeleton } from '#components/ui/skeleton';
 
-import { useCopy } from './use-copy.js';
+import type { ResourceProject } from '../resource-projects/types.js';
+import { projectOverview, todayIso, type ProjectOverview } from './overview.js';
+import { useProjectOverview } from './use-project-overview.js';
 
-// The cards and their wording come from the capability guide, built from this application's own dependencies, so
-// the home page and the guide never disagree; only the icons are the page's own.
-const catalog = createCapabilityCatalog(applicationManifest);
-const HOME_ICONS: Readonly<Record<string, LucideIcon>> = {
-  'app-plugin-authorization': ShieldCheckIcon,
-  'app-plugin-file': PaperclipIcon,
-  lifecycle: GitBranchIcon,
-  'app-plugin-notification': BellIcon,
-  'app-plugin-scheduler': CalendarClockIcon,
-  'app-plugin-agents': BotIcon,
-};
+/**
+ * This page is the business workbench, not the template's starting page.
+ *
+ * It used to explain how to develop the application by asking a coding agent
+ * and to list the platform's built-in capabilities from the Foundation
+ * plugin's capability guide. That content told a signed-in user nothing about
+ * construction resource planning, so it was removed here and replaced with
+ * the project figures and the business entries this application actually
+ * offers. The capability guide remains a registered Foundation route; only
+ * its home-page presentation was removed. The application's own copy lives in
+ * `client/locales`, which overrides the template's `home` namespace, so a
+ * template upgrade can still replace its copy without touching this page.
+ */
 
-const STEPS = ['describe', 'build', 'review'] as const;
+/** The grants the cards below check; the routes enforce the same resources server-side. */
+const PROJECTS_ACCESS = {
+  resource: { type: 'page', id: 'resourceProjects' },
+  action: 'access',
+} as const;
+const TRADE_QUOTAS_READ = {
+  resource: { type: 'settings', id: 'resourcePlanning.tradeQuotas' },
+  action: 'read',
+} as const;
 
 export default function HomePage(): ReactElement {
-  const { i18n } = useTranslation();
-  const content = guideContent(i18n.language);
-  const { can: canBrowseCapabilities } = useCan(CAPABILITY_GUIDE_ACCESS);
+  const { t } = useTranslation();
+  const projectsAccess = useCan(PROJECTS_ACCESS);
+  const quotasAccess = useCan(TRADE_QUOTAS_READ);
+  const canViewProjects = projectsAccess.can;
+  const canReadQuotas = quotasAccess.can;
+  const permissionsPending = projectsAccess.isPending || quotasAccess.isPending;
+
+  const projects = useProjectOverview(canViewProjects);
 
   return (
     <PageContainer className='mx-auto max-w-6xl'>
-      <AgentIntro />
-      <section
-        aria-labelledby='home-capabilities'
-        className='flex flex-col gap-4'
-      >
-        <div className='flex flex-wrap items-end justify-between gap-2'>
-          <div className='flex flex-col gap-1'>
-            <h2 id='home-capabilities' className='text-base font-medium'>
-              {content.home.title}
-            </h2>
-            {canBrowseCapabilities ? (
-              <p className='text-sm text-muted-foreground'>
-                {content.home.description}
-              </p>
-            ) : null}
-          </div>
-          {canBrowseCapabilities ? (
-            <Link
-              to={CAPABILITY_GUIDE_PATH}
-              className='inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline'
-            >
-              {format(content.home.viewAll, { count: catalog.entries.length })}
-              <ArrowRightIcon className='size-4' aria-hidden />
-            </Link>
+      <PageHeader
+        eyebrow={
+          <>
+            <HammerIcon className='size-4' aria-hidden />
+            {t('home.eyebrow')}
+          </>
+        }
+        title={t('home.title')}
+        description={t('home.description')}
+      />
+      {permissionsPending ? (
+        <WorkbenchSkeleton />
+      ) : canViewProjects || canReadQuotas ? (
+        <>
+          {canViewProjects ? (
+            <OverviewSection
+              loading={projects.loading}
+              error={projects.error}
+              projects={projects.projects}
+            />
           ) : null}
-        </div>
-        <ul className='grid gap-4 sm:grid-cols-2 xl:grid-cols-3'>
-          {catalog.featured.map((entry) => (
-            <li key={entry.id} className='flex'>
-              <CapabilityCard
-                entry={entry}
-                content={content}
-                canBrowse={canBrowseCapabilities}
-              />
-            </li>
-          ))}
-        </ul>
-      </section>
+          <QuickActions
+            canViewProjects={canViewProjects}
+            canReadQuotas={canReadQuotas}
+          />
+        </>
+      ) : (
+        <RestrictedNotice />
+      )}
     </PageContainer>
   );
 }
 
-/** The first part of the page: development here happens by asking a coding agent, which the steps and sample show. */
-function AgentIntro(): ReactElement {
+function OverviewSection({
+  loading,
+  error,
+  projects,
+}: {
+  readonly loading: boolean;
+  readonly error: unknown;
+  readonly projects?: readonly ResourceProject[];
+}): ReactElement {
   const { t } = useTranslation();
-  const { copied, copy } = useCopy();
-  const example = t('home.example.text');
+  const { locale: language } = useLocale();
+  // The same list the projects page loads, counted the same way, so the
+  // figures here and there can never disagree.
+  const overview: ProjectOverview | undefined = projects
+    ? projectOverview(projects, todayIso())
+    : undefined;
 
   return (
-    <section className='grid gap-8 rounded-2xl border border-border bg-linear-to-br from-primary/5 via-card to-card p-6 md:p-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-center'>
-      <div className='flex flex-col gap-6'>
-        <div className='flex flex-col gap-4'>
-          <p className='flex items-center gap-2 text-sm font-medium text-primary'>
-            <SparklesIcon className='size-4' aria-hidden />
-            {t('home.platform')}
-          </p>
-          <h1 className='font-heading text-3xl font-semibold tracking-[-0.035em] text-balance md:text-4xl'>
-            {t('home.title')}
-          </h1>
-          <p className='text-base leading-7 text-muted-foreground'>
-            {t('home.description')}
-          </p>
-        </div>
-        <ol className='flex flex-col gap-3'>
-          {STEPS.map((step, index) => (
-            <li key={step} className='flex gap-3'>
-              <span className='flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-medium text-primary'>
-                {index + 1}
-              </span>
-              <div className='flex flex-col gap-0.5'>
-                <span className='text-sm font-medium'>
-                  {t(`home.steps.${step}.title`)}
-                </span>
-                <span className='text-sm text-muted-foreground'>
-                  {t(`home.steps.${step}.description`)}
-                </span>
-              </div>
-            </li>
-          ))}
-        </ol>
+    <section
+      aria-labelledby='home-overview'
+      aria-busy={loading}
+      className='flex flex-col gap-3'
+    >
+      <div className='flex flex-col gap-1'>
+        <h2 id='home-overview' className='text-base font-medium'>
+          {t('home.overview.title')}
+        </h2>
+        <p className='text-sm text-muted-foreground'>
+          {t('home.overview.description')}
+        </p>
       </div>
-      <figure className='flex flex-col overflow-hidden rounded-xl border border-primary/10 bg-card shadow-sm'>
-        <figcaption className='flex items-center justify-between gap-2 border-b border-primary/10 px-4 py-2.5'>
-          <span className='flex items-center gap-2 text-sm font-medium'>
-            <MessageSquareTextIcon
-              className='size-4 text-primary'
-              aria-hidden
-            />
-            {t('home.example.title')}
-          </span>
-          <Button variant='ghost' size='sm' onClick={() => void copy(example)}>
-            {copied ? (
-              <CheckIcon data-icon='inline-start' />
-            ) : (
-              <CopyIcon data-icon='inline-start' />
-            )}
-            {copied ? t('home.prompt.copiedShort') : t('home.prompt.copy')}
-          </Button>
-        </figcaption>
-        <p className='bg-primary/5 px-4 py-4 text-sm leading-7 whitespace-pre-line'>
-          {example}
-        </p>
-        <p className='border-t border-primary/10 px-4 py-2.5 text-xs text-muted-foreground'>
-          {t('home.example.hint')}
-        </p>
-      </figure>
+      <div className='grid gap-3 sm:grid-cols-2'>
+        <StatCard
+          icon={FolderKanbanIcon}
+          label={t('home.overview.totalProjects')}
+          loading={loading}
+          value={overview?.total}
+        />
+        <StatCard
+          icon={HardHatIcon}
+          hint={t('home.overview.inProgressHint')}
+          label={t('home.overview.inProgress')}
+          loading={loading}
+          value={overview?.inProgress}
+        />
+      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>{t('home.overview.recent')}</CardTitle>
+          <CardAction>
+            <Link
+              to='/resource-projects'
+              className='inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline'
+            >
+              {t('home.overview.viewAll')}
+              <ArrowRightIcon className='size-4' aria-hidden />
+            </Link>
+          </CardAction>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className='flex flex-col gap-3'>
+              <Skeleton className='h-4 w-2/3' />
+              <Skeleton className='h-4 w-1/2' />
+              <Skeleton className='h-4 w-3/5' />
+            </div>
+          ) : error || !overview ? (
+            <p className='text-sm text-muted-foreground'>
+              {t('home.overview.unavailable')}
+            </p>
+          ) : overview.recent.length === 0 ? (
+            <p className='text-sm text-muted-foreground'>
+              {t('home.overview.noProjects')}
+            </p>
+          ) : (
+            <ul className='divide-y divide-border'>
+              {overview.recent.map((project) => (
+                <li
+                  key={project.id}
+                  className='flex flex-wrap items-center justify-between gap-2 py-2 first:pt-0 last:pb-0'
+                >
+                  <div className='flex min-w-0 flex-col gap-0.5'>
+                    <RecordLink
+                      to={`/resource-projects/${project.id}`}
+                      className='truncate'
+                    >
+                      {project.name}
+                    </RecordLink>
+                    <span className='text-xs text-muted-foreground'>
+                      {t('home.overview.schedule', {
+                        start: project.startDate,
+                        end: project.endDate,
+                      })}
+                    </span>
+                  </div>
+                  {project.updatedAt ? (
+                    <span className='text-xs text-muted-foreground whitespace-nowrap'>
+                      {t('home.overview.updatedAt', {
+                        date: formatDate(project.updatedAt, language),
+                      })}
+                    </span>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
     </section>
   );
 }
 
-function CapabilityCard({
-  entry,
-  content,
-  canBrowse,
+function StatCard({
+  icon: Icon,
+  label,
+  value,
+  hint,
+  loading,
 }: {
-  readonly entry: CatalogEntry;
-  readonly content: GuideContent;
-  readonly canBrowse: boolean;
+  readonly icon: LucideIcon;
+  readonly label: string;
+  readonly value?: number;
+  readonly hint?: string;
+  readonly loading: boolean;
 }): ReactElement {
-  const text = entryContent(content, entry);
-  const Icon = HOME_ICONS[entry.id] ?? SparklesIcon;
-
-  const card = (
-    <Card className='w-full transition-[translate,box-shadow,background-color] duration-200 ease-out group-hover:-translate-y-0.5 group-hover:bg-hover group-hover:shadow-md motion-reduce:transition-none motion-reduce:group-hover:translate-y-0'>
-      <CardHeader className='gap-3'>
-        <span className='flex size-9 items-center justify-center rounded-lg bg-primary/5 text-primary ring-1 ring-transparent transition-[background-color,box-shadow] duration-200 ease-out group-hover:bg-primary/10 group-hover:ring-border motion-reduce:transition-none'>
-          <Icon
-            className='size-4 transition-transform duration-200 ease-out group-hover:scale-110 motion-reduce:transition-none'
-            aria-hidden
-          />
-        </span>
-        <div className='flex flex-col gap-1'>
-          <CardTitle>{text.title}</CardTitle>
-          <CardDescription className='leading-6'>
-            {text.summary}
-          </CardDescription>
-        </div>
+  const { locale: language } = useLocale();
+  return (
+    <Card size='sm'>
+      <CardHeader className='gap-1'>
+        <CardDescription className='flex items-center gap-2'>
+          <Icon className='size-4' aria-hidden />
+          {label}
+        </CardDescription>
+        <CardTitle className='text-3xl font-semibold tracking-tight'>
+          {loading || value === undefined ? (
+            <Skeleton className='h-8 w-14' aria-hidden />
+          ) : (
+            new Intl.NumberFormat(language).format(value)
+          )}
+        </CardTitle>
+        {hint ? <p className='text-xs text-muted-foreground'>{hint}</p> : null}
       </CardHeader>
-      {canBrowse ? (
-        <CardFooter className='mt-auto justify-between text-sm text-muted-foreground transition-colors duration-200 ease-out group-hover:text-foreground'>
-          {content.home.open}
-          <ArrowRightIcon
-            className='size-4 transition-transform duration-200 ease-out group-hover:translate-x-1 motion-reduce:transition-none'
-            aria-hidden
-          />
-        </CardFooter>
-      ) : null}
     </Card>
   );
+}
 
-  return canBrowse ? (
-    <Link
-      to={capabilityPath(entry.id)}
-      className='group flex w-full cursor-pointer rounded-xl text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50'
-    >
-      {card}
-    </Link>
-  ) : (
-    card
+function QuickActions({
+  canViewProjects,
+  canReadQuotas,
+}: {
+  readonly canViewProjects: boolean;
+  readonly canReadQuotas: boolean;
+}): ReactElement {
+  const { t } = useTranslation();
+  return (
+    <section aria-labelledby='home-actions' className='flex flex-col gap-3'>
+      <div className='flex flex-col gap-1'>
+        <h2 id='home-actions' className='text-base font-medium'>
+          {t('home.actions.title')}
+        </h2>
+        <p className='text-sm text-muted-foreground'>
+          {t('home.actions.description')}
+        </p>
+      </div>
+      <ul className='grid gap-3 sm:grid-cols-2 xl:grid-cols-4'>
+        {canViewProjects ? (
+          <>
+            <QuickAction
+              to='/resource-projects/new'
+              icon={PlusIcon}
+              title={t('home.actions.newProject')}
+              description={t('home.actions.newProjectDescription')}
+            />
+            <QuickAction
+              to='/resource-projects'
+              icon={ListTreeIcon}
+              title={t('home.actions.projects')}
+              description={t('home.actions.projectsDescription')}
+            />
+            <QuickAction
+              to='/resource-projects/compare'
+              icon={Rows3Icon}
+              title={t('resourcePlanning.compare')}
+              description={t('resourcePlanning.compareDescription')}
+            />
+          </>
+        ) : null}
+        {canReadQuotas ? (
+          <QuickAction
+            to='/resource-planning/trades'
+            icon={BarChart3Icon}
+            title={t('resourcePlanning.tradeQuotas')}
+            description={t('resourcePlanning.tradeQuotasDescription')}
+          />
+        ) : null}
+      </ul>
+    </section>
   );
+}
+
+function QuickAction({
+  to,
+  icon: Icon,
+  title,
+  description,
+}: {
+  readonly to: string;
+  readonly icon: LucideIcon;
+  readonly title: string;
+  readonly description: string;
+}): ReactElement {
+  return (
+    <li className='flex'>
+      <Link
+        to={to}
+        className='group flex w-full cursor-pointer rounded-xl text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50'
+      >
+        <Card className='w-full transition-[translate,box-shadow,background-color] duration-200 ease-out group-hover:-translate-y-0.5 group-hover:bg-hover group-hover:shadow-md motion-reduce:transition-none motion-reduce:group-hover:translate-y-0'>
+          <CardHeader className='gap-3'>
+            <span className='flex size-9 items-center justify-center rounded-lg bg-primary/5 text-primary ring-1 ring-transparent transition-[background-color,box-shadow] duration-200 ease-out group-hover:bg-primary/10 group-hover:ring-border motion-reduce:transition-none'>
+              <Icon
+                className='size-4 transition-transform duration-200 ease-out group-hover:scale-110 motion-reduce:transition-none'
+                aria-hidden
+              />
+            </span>
+            <div className='flex flex-col gap-1'>
+              <CardTitle>{title}</CardTitle>
+              <CardDescription className='leading-6'>
+                {description}
+              </CardDescription>
+            </div>
+          </CardHeader>
+        </Card>
+      </Link>
+    </li>
+  );
+}
+
+function RestrictedNotice(): ReactElement {
+  const { t } = useTranslation();
+  return (
+    <Empty className='border'>
+      <EmptyHeader>
+        <EmptyMedia variant='icon'>
+          <LockKeyholeIcon aria-hidden />
+        </EmptyMedia>
+        <EmptyTitle>{t('home.restricted.title')}</EmptyTitle>
+        <EmptyDescription>{t('home.restricted.description')}</EmptyDescription>
+      </EmptyHeader>
+    </Empty>
+  );
+}
+
+function WorkbenchSkeleton(): ReactElement {
+  return (
+    <div aria-busy='true' className='flex flex-col gap-3'>
+      <Skeleton className='h-5 w-40' />
+      <div className='grid gap-3 sm:grid-cols-2'>
+        <Skeleton className='h-24 w-full rounded-xl' />
+        <Skeleton className='h-24 w-full rounded-xl' />
+      </div>
+      <Skeleton className='h-40 w-full rounded-xl' />
+    </div>
+  );
+}
+
+function formatDate(value: string, language: string): string {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? value
+    : date.toLocaleDateString(language, {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+      });
 }
