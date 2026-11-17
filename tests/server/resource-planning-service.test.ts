@@ -15,6 +15,12 @@ describe('evenSchedule', () => {
     expect(values.reduce((sum, value) => sum + value, 0)).toBe(100);
     expect(values).toEqual([34, 33, 33]);
   });
+  it('keeps the total exact for a fractional total', () => {
+    const values = evenSchedule(100.5, 3);
+    expect(values.reduce((sum, value) => sum + value, 0)).toBe(100.5);
+    // 100.5 / 3 = 33.5: two periods carry 34, the last absorbs 33.
+    expect(values).toEqual([34, 34, 32.5]);
+  });
   it('answers an empty schedule for a zero period count', () => {
     expect(evenSchedule(10, 0)).toEqual([]);
   });

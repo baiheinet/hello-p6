@@ -129,15 +129,9 @@ export const UpdateResourceProjectInput = z.strictObject({
     .nonnegative()
     .optional()
     .meta({ description: 'The new total quantity; the schedule is re-split.' }),
-  periodCount: z
-    .number()
-    .int()
-    .min(1)
-    .max(1200)
-    .optional()
-    .meta({
-      description: 'The new number of periods; the schedule is re-split.',
-    }),
+  periodCount: z.number().int().min(1).max(1200).optional().meta({
+    description: 'The new number of periods; the schedule is re-split.',
+  }),
   startDate: z.iso
     .date()
     .optional()
@@ -483,7 +477,7 @@ export const resourcePlanningRoutes: AppApiRouteContribution<Application> =
         // so carry it from the id the write named when it is missing.
         return c.json(
           {
-            data: { ...result.record, id: (result.record?.id as string) ?? id },
+            data: { ...result.record, id: result.record?.id ?? id },
           },
           201,
         );
@@ -519,7 +513,7 @@ export const resourcePlanningRoutes: AppApiRouteContribution<Application> =
             domain: 'resourcePlanning',
             message: `Project ${projectId} was not found.`,
           });
-        let { totalQuantity, periodCount } = {
+        const { totalQuantity, periodCount } = {
           totalQuantity: input.totalQuantity ?? record.totalQuantity,
           periodCount: input.periodCount ?? record.periodCount,
         };
@@ -642,11 +636,10 @@ export const resourcePlanningRoutes: AppApiRouteContribution<Application> =
             domain: 'resourcePlanning',
             message: `Period ${input.index} is not in the schedule.`,
           });
-        const overrides =
-          (record.laborOverrides as Record<
-            string,
-            Record<string, number | null>
-          > | null) ?? {};
+        const overrides: Record<
+          string,
+          Record<string, number | null>
+        > = record.laborOverrides ?? {};
         overrides[input.trade] = {
           ...(overrides[input.trade] ?? {}),
           [String(input.index)]: input.value,
@@ -766,7 +759,7 @@ export const resourcePlanningRoutes: AppApiRouteContribution<Application> =
         });
         return c.json(
           {
-            data: { ...result.record, id: (result.record?.id as string) ?? id },
+            data: { ...result.record, id: result.record?.id ?? id },
           },
           201,
         );

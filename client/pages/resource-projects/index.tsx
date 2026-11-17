@@ -179,24 +179,6 @@ function ProjectActions({ row }: { row: Row<ResourceProject> }): ReactElement {
             </Link>
           ),
         },
-        {
-          key: 's-curve',
-          label: t('resourcePlanning.actionScurve'),
-          render: (
-            <Link to={`/resource-projects/${project.id}/s-curve`}>
-              {t('resourcePlanning.sCurve')}
-            </Link>
-          ),
-        },
-        {
-          key: 'labor',
-          label: t('resourcePlanning.actionLabor'),
-          render: (
-            <Link to={`/resource-projects/${project.id}/labor`}>
-              {t('resourcePlanning.labor')}
-            </Link>
-          ),
-        },
       ]}
     />
   );
