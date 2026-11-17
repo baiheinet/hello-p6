@@ -1,5 +1,11 @@
 import { useTranslation } from '@nocobase/i18n/client';
-import { type FormEvent, type ReactElement, useMemo, useState } from 'react';
+import {
+  type FormEvent,
+  type ReactElement,
+  useCallback,
+  useMemo,
+  useState,
+} from 'react';
 import { useNavigate } from 'react-router';
 
 import { FeedbackForm } from '#components/feedback-form';
@@ -30,6 +36,19 @@ export default function NewProjectPage(): ReactElement {
   const [startDate, setStartDate] = useState<Date | undefined>();
   const [endDate, setEndDate] = useState<Date | undefined>();
 
+  // Blank values of the create form: once the project is saved, the form's input equals what is saved, so the
+  // overlay's "Discard changes?" does not open over the navigation the save itself starts.
+  const [saved, setSaved] = useState(false);
+  const [savedValues, setSavedValues] = useState<Record<string, unknown>>(
+    () => ({
+      name: '',
+      totalQuantity: '',
+      periodCount: '',
+      startDate: '',
+      endDate: '',
+    }),
+  );
+
   const errors = useMemo(() => {
     const result: Record<string, string> = {};
     if (!name.trim()) result.name = t('resourcePlanning.form.nameRequired');
@@ -44,10 +63,12 @@ export default function NewProjectPage(): ReactElement {
     return result;
   }, [name, totalQuantity, periodCount, startDate, endDate, t]);
 
+  // Returns the request's promise, so the enclosing overlay learns its save is running and the navigation it ends
+  // with does not ask to discard the input. A failed save keeps the form dirty: leaving then still asks.
   const submit = () => {
     if (Object.keys(errors).length) return;
     setSubmitting(true);
-    void create({
+    return create({
       name: name.trim(),
       totalQuantity: Number(totalQuantity),
       periodCount: Number(periodCount),
@@ -55,6 +76,14 @@ export default function NewProjectPage(): ReactElement {
       endDate: formatDateOnly(endDate),
     })
       .then(({ data }) => {
+        setSaved(true);
+        setSavedValues({
+          name: data.name,
+          totalQuantity: String(data.totalQuantity),
+          periodCount: String(data.periodCount),
+          startDate: data.startDate,
+          endDate: data.endDate,
+        });
         void close();
         void navigate(`../${data.id}`);
       })
@@ -62,10 +91,13 @@ export default function NewProjectPage(): ReactElement {
       .finally(() => setSubmitting(false));
   };
 
-  const handleSubmit = (event: FormEvent) => {
-    event.preventDefault();
-    submit();
-  };
+  const handleSubmit = useCallback(
+    (event: FormEvent) => {
+      event.preventDefault();
+      void submit();
+    },
+    [submit],
+  );
 
   return (
     <RouteDialog
