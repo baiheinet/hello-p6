@@ -2,6 +2,7 @@ import {
   rebalance,
   evenSchedule,
   latestStartCumulative,
+  latestStartSchedule,
   laborDemand,
   roundLabor,
 } from '../../server/services/resource-planning.js';
@@ -66,6 +67,31 @@ describe('latestStartCumulative', () => {
 
   it('keeps a single-period schedule as the total itself', () => {
     expect(latestStartCumulative([500])).toEqual([500]);
+  });
+});
+
+describe('latestStartSchedule', () => {
+  it('is the adjacent difference of the very same cumulative curve', () => {
+    const schedule = [25, 25, 25, 25];
+    const cumulative = latestStartCumulative(schedule);
+    expect(latestStartSchedule(schedule)).toEqual(
+      cumulative.map((value, index) =>
+        index === 0 ? value : value - cumulative[index - 1],
+      ),
+    );
+  });
+
+  it('keeps the whole total, front-light and back-heavy', () => {
+    const schedule = new Array(10).fill(1000);
+    const periods = latestStartSchedule(schedule);
+    expect(periods).toHaveLength(10);
+    expect(periods.reduce((sum, value) => sum + value, 0)).toBe(10000);
+    expect(periods[0]).toBeLessThan(periods[periods.length - 1]);
+  });
+
+  it('answers empty and single-period schedules without drift', () => {
+    expect(latestStartSchedule([])).toEqual([]);
+    expect(latestStartSchedule([500])).toEqual([500]);
   });
 });
 
@@ -147,5 +173,36 @@ describe('laborDemand', () => {
   it('rounds to one decimal so charts and tables agree', () => {
     expect(roundLabor(0.1 * 3)).toBe(0.3);
     expect(roundLabor(123.456)).toBe(123.5);
+  });
+
+  it('recomputes demand for the latest-start plan while keeping overrides', () => {
+    const trades = [
+      { id: '1', name: 'Rebar', unitQuota: 0.2, createdAt: '', updatedAt: '' },
+    ];
+    // 120 over four periods gives exact one-decimal demand in both scenarios.
+    const schedule = [30, 30, 30, 30];
+    const earliest = laborDemand({ schedule, laborOverrides: null }, trades);
+    const latest = laborDemand(
+      { schedule: latestStartSchedule(schedule), laborOverrides: null },
+      trades,
+    );
+    // Both scenarios spend the same total quantity, so their quota-based
+    // labor totals converge, but the work shifts towards the final periods.
+    const sum = (rows: typeof earliest) =>
+      roundLabor(rows.reduce((total, row) => total + row.value, 0));
+    expect(sum(latest)).toBe(sum(earliest));
+    expect(latest[0].value).toBeLessThan(earliest[0].value);
+    expect(latest[latest.length - 2].value).toBeGreaterThan(
+      earliest[earliest.length - 2].value,
+    );
+    // The manual override is applied on top of whichever scenario is used.
+    const overridden = laborDemand(
+      {
+        schedule: latestStartSchedule(schedule),
+        laborOverrides: { Rebar: { '3': 99 } },
+      },
+      trades,
+    );
+    expect(overridden[3]).toMatchObject({ value: 99, override: 99 });
   });
 });

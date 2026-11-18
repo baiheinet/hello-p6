@@ -26,9 +26,19 @@ import { useCompareEntryVisible } from './use-compare-entry.js';
 import { useAdjustPeriod, useOverrideLabor, useProjectView } from './api.js';
 import type { ResourceProjectView } from './types.js';
 
+/** The S-curve forms the card can switch between, in segmented-control order. */
+type CurveForm = 'combo' | 'percent' | 'banana';
+
+/** The two plans a banana curve compares; both drive the labor table. */
+type CurveScenario = 'earliest' | 'latest';
+
 export default function ProjectDetailPage(): ReactElement {
   const { projectId } = useParams();
   const { t } = useTranslation();
+  // The view choices live for this session only: switching never refetches
+  // the project, it just re-reads the already-loaded S curve and labor data.
+  const [form, setForm] = useState<CurveForm>('combo');
+  const [scenario, setScenario] = useState<CurveScenario>('earliest');
   const {
     data: view,
     error,
@@ -56,8 +66,19 @@ export default function ProjectDetailPage(): ReactElement {
   return (
     <Shell view={view}>
       <ScheduleSection view={view} onSaved={reload} />
-      <SCurveCard view={view} />
-      <LaborSection view={view} onSaved={reload} />
+      <SCurveCard
+        view={view}
+        form={form}
+        onFormChange={setForm}
+        scenario={scenario}
+        onScenarioChange={setScenario}
+      />
+      <LaborSection
+        view={view}
+        form={form}
+        scenario={scenario}
+        onSaved={reload}
+      />
     </Shell>
   );
 }
@@ -101,18 +122,20 @@ function Shell({
   );
 }
 
-/** The S-curve forms the card can switch between, in segmented-control order. */
-type CurveForm = 'combo' | 'percent' | 'banana';
-
 function SCurveCard({
   view,
+  form,
+  onFormChange,
+  scenario,
+  onScenarioChange,
 }: {
   readonly view: ResourceProjectView;
+  readonly form: CurveForm;
+  readonly onFormChange: (form: CurveForm) => void;
+  readonly scenario: CurveScenario;
+  readonly onScenarioChange: (scenario: CurveScenario) => void;
 }): ReactElement {
   const { t } = useTranslation();
-  // The choice lives for this session only: switching re-renders the chart
-  // from the view already loaded and never refetches the page data.
-  const [form, setForm] = useState<CurveForm>('combo');
   const labels = useMemo(
     () => view.schedule.map((_, index) => periodLabel(index, view.startDate)),
     [view],
@@ -178,6 +201,12 @@ function SCurveCard({
     // Banana curve: the earliest-start bound is the project's own
     // cumulative curve; the latest-start bound comes from the server and
     // never rises above it, so the band between them is the plan's float.
+    // The selected scenario is drawn solid and the other is dashed, so the
+    // curve and the labor table below highlight the same plan.
+    const emphasis = (selected: boolean) =>
+      selected
+        ? { lineStyle: { width: 3 } }
+        : { lineStyle: { type: 'dashed', opacity: 0.55 } };
     return {
       grid: { left: 48, right: 24, top: 32, bottom: 32 },
       legend: { top: 0 },
@@ -190,16 +219,18 @@ function SCurveCard({
           type: 'line',
           smooth: true,
           data: view.cumulative,
+          ...emphasis(scenario === 'earliest'),
         },
         {
           name: t('resourcePlanning.latestStart'),
           type: 'line',
           smooth: true,
           data: view.latestStartCumulative,
+          ...emphasis(scenario === 'latest'),
         },
       ],
     };
-  }, [form, labels, t, view]);
+  }, [form, labels, scenario, t, view]);
   return (
     <Card>
       <CardHeader>
@@ -208,7 +239,7 @@ function SCurveCard({
       <CardContent className='space-y-3'>
         <Tabs
           value={form}
-          onValueChange={(value) => setForm(value as CurveForm)}
+          onValueChange={(value) => onFormChange(value as CurveForm)}
         >
           <TabsList aria-label={t('resourcePlanning.sCurveForms.label')}>
             <TabsTrigger value='combo'>
@@ -222,6 +253,21 @@ function SCurveCard({
             </TabsTrigger>
           </TabsList>
         </Tabs>
+        {form === 'banana' ? (
+          <Tabs
+            value={scenario}
+            onValueChange={(value) => onScenarioChange(value as CurveScenario)}
+          >
+            <TabsList aria-label={t('resourcePlanning.bananaScenarioLabel')}>
+              <TabsTrigger value='earliest'>
+                {t('resourcePlanning.earliestStart')}
+              </TabsTrigger>
+              <TabsTrigger value='latest'>
+                {t('resourcePlanning.latestStart')}
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        ) : null}
         <ReactECharts style={{ height: 288 }} option={option} notMerge />
         {form === 'banana' ? (
           <p className='text-xs text-muted-foreground'>
@@ -332,9 +378,13 @@ function ScheduleSection({
 
 function LaborSection({
   view,
+  form,
+  scenario,
   onSaved,
 }: {
   readonly view: ResourceProjectView;
+  readonly form: CurveForm;
+  readonly scenario: CurveScenario;
   readonly onSaved: () => void;
 }): ReactElement {
   const { t } = useTranslation();
@@ -344,9 +394,16 @@ function LaborSection({
     index: number;
   } | null>(null);
   const [saving, setSaving] = useState(false);
+  // Only the banana curve's "latest start" scenario changes the per-period
+  // quantity. The other forms keep the current schedule, so their labor is
+  // the server's earliest-start demand.
+  const rows =
+    form === 'banana' && scenario === 'latest'
+      ? view.laborLatestStart
+      : view.labor;
   const totals = useMemo(
-    () => laborTotals(view.labor, view.schedule.length),
-    [view],
+    () => laborTotals(rows, view.schedule.length),
+    [rows, view.schedule.length],
   );
 
   const handleBlur = (event: FocusEvent<HTMLInputElement>) => {
@@ -366,8 +423,13 @@ function LaborSection({
       <CardHeader>
         <CardTitle>{t('resourcePlanning.labor')}</CardTitle>
       </CardHeader>
-      <CardContent>
-        {view.labor.length === 0 ? (
+      <CardContent className='space-y-3'>
+        <p className='text-xs text-muted-foreground'>
+          {form === 'banana'
+            ? t('resourcePlanning.laborScenarioNote')
+            : t('resourcePlanning.laborUnchangedNote')}
+        </p>
+        {rows.length === 0 ? (
           <p className='text-sm text-muted-foreground'>
             {t('resourcePlanning.noTrades')}
           </p>
@@ -385,7 +447,7 @@ function LaborSection({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {view.labor.map(({ trade, periods }) => (
+              {rows.map(({ trade, periods }) => (
                 <TableRow key={trade}>
                   <TableCell>{trade}</TableCell>
                   {periods.map((value, index) => {
