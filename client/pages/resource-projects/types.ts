@@ -22,6 +22,12 @@ export interface ResourceProject {
   readonly updatedAt?: string;
 }
 
+/** One trade's per-period labor demand, with manual overrides applied. */
+export interface LaborRow {
+  readonly trade: string;
+  readonly periods: readonly number[];
+}
+
 export interface ResourceProjectView extends ResourceProject {
   /** Cumulative planned quantity, one value per period. */
   readonly cumulative: readonly number[];
@@ -31,11 +37,18 @@ export interface ResourceProjectView extends ResourceProject {
    * schedule's total.
    */
   readonly latestStartCumulative: readonly number[];
-  /** One row per trade: its per-period labor demand with overrides applied. */
-  readonly labor: readonly {
-    readonly trade: string;
-    readonly periods: readonly number[];
-  }[];
+  /**
+   * The "latest start" plan's per-period quantity, the adjacent differences
+   * of `latestStartCumulative`. It shares the S curve's quantity basis.
+   */
+  readonly latestStartSchedule: readonly number[];
+  /** Labor demand from the current (earliest start) schedule. */
+  readonly labor: readonly LaborRow[];
+  /**
+   * Labor demand from the "latest start" per-period quantity, with the same
+   * trade quotas and manual overrides applied on top.
+   */
+  readonly laborLatestStart: readonly LaborRow[];
 }
 
 export interface LaborTrade {

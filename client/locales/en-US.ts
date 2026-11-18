@@ -92,6 +92,11 @@ const enUS = {
     latestStart: 'Latest start',
     bananaNote:
       'The earliest-start curve is the project’s current schedule as cumulative output. The latest-start curve keeps early periods light and concentrates output late; both curves end at the total quantity, and the band between them is the float of the plan. Both bounds come from the same quantity basis as the schedule.',
+    bananaScenarioLabel: 'Banana curve scenario',
+    laborScenarioNote:
+      'Labor is recalculated for the selected scenario: earliest start uses the current schedule, latest start uses the front-light, back-heavy plan. Manual overrides stay in place.',
+    laborUnchangedNote:
+      'Output + cumulative and cumulative % are only two views of the same schedule. The planned quantity does not change, so labor demand stays the same.',
     schedule: 'Output per period',
     labor: 'Labor demand',
     total: 'Total',

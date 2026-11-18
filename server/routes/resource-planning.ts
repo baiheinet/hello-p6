@@ -28,8 +28,10 @@ import {
   rebalance,
   cumulativeSeries,
   latestStartCumulative,
+  latestStartSchedule,
   laborDemand,
   periodLabel,
+  type PeriodLabor,
   type ResourceProject,
   type LaborTrade,
 } from '../services/resource-planning.js';
@@ -175,6 +177,13 @@ export const OverrideLaborInput = z.strictObject({
   }),
 });
 
+export const LaborRowsSchema = z.array(
+  z.object({
+    trade: z.string(),
+    periods: z.array(z.number()),
+  }),
+);
+
 export const ResourceProjectViewSchema = ResourceProjectSchema.extend({
   cumulative: z.array(z.number()),
   /**
@@ -182,12 +191,18 @@ export const ResourceProjectViewSchema = ResourceProjectSchema.extend({
    * service from the same schedule the `cumulative` curve comes from.
    */
   latestStartCumulative: z.array(z.number()),
-  labor: z.array(
-    z.object({
-      trade: z.string(),
-      periods: z.array(z.number()),
-    }),
-  ),
+  /**
+   * The "latest start" plan's per-period quantity, the adjacent differences
+   * of `latestStartCumulative`; it shares that curve's quantity basis.
+   */
+  latestStartSchedule: z.array(z.number()),
+  /** Labor demand from the current (earliest start) schedule. */
+  labor: LaborRowsSchema,
+  /**
+   * Labor demand from the "latest start" per-period quantity, with the same
+   * trade quotas and manual overrides applied on top.
+   */
+  laborLatestStart: LaborRowsSchema,
 }).meta({ ref: 'ResourceProjectView' });
 
 export const CompareProjectsQuery = z.object({
@@ -335,21 +350,32 @@ export const resourcePlanningRoutes: AppApiRouteContribution<Application> =
       ) as unknown as Repository<ResourceProject>;
     }
 
-    async function projectView(record: ResourceProject) {
-      const tradeList = await trades.findMany();
-      const laborByTrade = laborDemand(record, tradeList).reduce<
-        Record<string, number[]>
-      >((acc, row) => {
+    /** Groups the service's flat labor rows into the table's per-trade shape. */
+    function laborRows(rows: readonly PeriodLabor[]) {
+      const byTrade = rows.reduce<Record<string, number[]>>((acc, row) => {
         (acc[row.trade] ??= []).push(row.value);
         return acc;
       }, {});
+      return Object.entries(byTrade).map(([trade, periods]) => ({
+        trade,
+        periods,
+      }));
+    }
+
+    /**
+     * The shared base of the detail and compare views. A caller that also
+     * needs the latest-start scenario passes the trade list it already read,
+     * so the extra scenario costs no second quota query.
+     */
+    async function projectView(
+      record: ResourceProject,
+      tradeList?: Awaited<ReturnType<typeof trades.findMany>>,
+    ) {
+      const list = tradeList ?? (await trades.findMany());
       return {
         ...record,
         cumulative: cumulativeSeries(record.schedule ?? []),
-        labor: Object.entries(laborByTrade).map(([trade, periods]) => ({
-          trade,
-          periods,
-        })),
+        labor: laborRows(laborDemand(record, list)),
       };
     }
 
@@ -452,14 +478,29 @@ export const resourcePlanningRoutes: AppApiRouteContribution<Application> =
             domain: 'resourcePlanning',
             message: `Project ${projectId} was not found.`,
           });
-        const view = await projectView(record);
-        // The banana curve's "latest start" bound is a detail-page concern,
-        // computed here from the same schedule the S curve comes from; the
-        // compare view keeps its documented row shape.
+        // The banana curve's "latest start" bound and the labor that goes
+        // with it are detail-page concerns, computed here from the same
+        // schedule the S curve comes from; the compare view keeps its
+        // documented row shape. The quota list is read once and shared by
+        // both labor scenarios.
+        const tradeList = await trades.findMany();
+        const view = await projectView(record, tradeList);
+        const schedule = record.schedule ?? [];
+        const latestSchedule = latestStartSchedule(schedule);
         return c.json({
           data: {
             ...view,
-            latestStartCumulative: latestStartCumulative(record.schedule ?? []),
+            latestStartCumulative: latestStartCumulative(schedule),
+            latestStartSchedule: latestSchedule,
+            laborLatestStart: laborRows(
+              laborDemand(
+                {
+                  schedule: latestSchedule,
+                  laborOverrides: record.laborOverrides,
+                },
+                tradeList,
+              ),
+            ),
           },
         });
       },

@@ -80,6 +80,11 @@ const zhCN: AppResource = {
     latestStart: '最晚开工',
     bananaNote:
       '「最早开工」曲线为当前排产计划的累计输出；「最晚开工」曲线前期产量低、后期集中，两条曲线期末均等于工程总量，两线之间即为计划的浮动范围。两条曲线与排产计划采用同一工程量口径。',
+    bananaScenarioLabel: '香蕉曲线场景',
+    laborScenarioNote:
+      '劳动力随所选场景重算：「最早开工」采用当前排产计划，「最晚开工」采用前松后紧的计划；手动覆盖保持不变。',
+    laborUnchangedNote:
+      '本期 + 累计与累计百分比只是同一份排产计划的两种呈现，排产量未变，因此劳动力需求也不变。',
     schedule: '每期排产量',
     labor: '劳动力需求',
     total: '合计',

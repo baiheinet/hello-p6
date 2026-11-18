@@ -83,6 +83,19 @@ export function latestStartCumulative(schedule: readonly number[]): number[] {
 }
 
 /**
+ * The "latest start" plan's per-period quantity: the adjacent differences of
+ * the very same cumulative curve the banana chart draws, so the S curve and
+ * every scenario-derived figure share one quantity basis. The values sum to
+ * the schedule's total and are front-light, back-heavy like the curve.
+ */
+export function latestStartSchedule(schedule: readonly number[]): number[] {
+  const cumulative = latestStartCumulative(schedule);
+  return cumulative.map((value, index) =>
+    index === 0 ? value : value - cumulative[index - 1],
+  );
+}
+
+/**
  * Splits the total quantity evenly across `count` periods. When it does not
  * divide evenly, the earlier periods carry one extra unit and the last
  * period absorbs the remainder, so the values sum to the total exactly even

@@ -267,6 +267,83 @@ test('the detail view adds the latest-start bound for the banana curve', async (
   }
 });
 
+test('the detail view recomputes labor for the latest-start banana scenario', async ({
+  testApp,
+}) => {
+  const admin = await signIn(testApp, DEFAULT_ADMIN_CREDENTIALS);
+  const project = (await createProject((path, init) =>
+    admin.fetch(path, init),
+  )) as { id: string; schedule: number[] };
+  const trade = (await createTrade(
+    (path, init) => admin.fetch(path, init),
+    'Banana Rebar',
+    0.2,
+  )) as { name: string };
+
+  const response = await admin.fetch(`/resourceProjects/${project.id}`);
+  expect(response.status).toBe(200);
+  const data = (await response.json()).data as {
+    schedule: number[];
+    latestStartCumulative: number[];
+    latestStartSchedule: number[];
+    labor: { trade: string; periods: number[] }[];
+    laborLatestStart: { trade: string; periods: number[] }[];
+  };
+  // The per-period latest-start plan is the difference of the same cumulative
+  // curve the banana chart draws, and it spends the whole quantity.
+  expect(data.latestStartSchedule).toHaveLength(data.schedule.length);
+  for (let index = 0; index < data.schedule.length; index += 1) {
+    const expected =
+      index === 0
+        ? data.latestStartCumulative[0]
+        : data.latestStartCumulative[index] -
+          data.latestStartCumulative[index - 1];
+    expect(data.latestStartSchedule[index]).toBeCloseTo(expected, 6);
+  }
+  expect(
+    data.latestStartSchedule.reduce((sum, value) => sum + value, 0),
+  ).toBeCloseTo(10000, 6);
+
+  const earliest = data.labor.find((row) => row.trade === trade.name);
+  const latest = data.laborLatestStart.find((row) => row.trade === trade.name);
+  expect(earliest).toBeDefined();
+  expect(latest).toBeDefined();
+  // Front-light, back-heavy: early labor drops, late labor rises, and the
+  // quota-based total converges because it is the same quantity basis.
+  expect(latest?.periods[0]).toBeLessThan(earliest?.periods[0] ?? 0);
+  expect(latest?.periods[8]).toBeGreaterThan(earliest?.periods[8] ?? 0);
+  const sum = (periods: number[]) =>
+    periods.reduce((total, value) => total + value, 0);
+  expect(sum(latest?.periods ?? [])).toBeCloseTo(
+    sum(earliest?.periods ?? []),
+    0,
+  );
+
+  // A manual override is carried into both scenarios instead of being washed
+  // away when the banana scenario changes.
+  const overridden = await admin.fetch(
+    `/resourceProjects/${project.id}/overrideLabor`,
+    {
+      method: 'POST',
+      headers: writeHeaders,
+      body: JSON.stringify({ trade: trade.name, index: 9, value: 77 }),
+    },
+  );
+  expect(overridden.status).toBe(200);
+  const after = await admin.fetch(`/resourceProjects/${project.id}`);
+  const afterData = (await after.json()).data as {
+    labor: { trade: string; periods: number[] }[];
+    laborLatestStart: { trade: string; periods: number[] }[];
+  };
+  expect(
+    afterData.labor.find((row) => row.trade === trade.name)?.periods[9],
+  ).toBe(77);
+  expect(
+    afterData.laborLatestStart.find((row) => row.trade === trade.name)
+      ?.periods[9],
+  ).toBe(77);
+});
+
 test('compares at least two projects side by side', async ({ testApp }) => {
   const admin = await signIn(testApp, DEFAULT_ADMIN_CREDENTIALS);
   const first = await createProject((path, init) => admin.fetch(path, init));

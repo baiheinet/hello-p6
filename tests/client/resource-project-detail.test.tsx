@@ -33,13 +33,18 @@ const view = {
   // The server's quadratic ramp, clamped below the plan curve: the banana
   // band the detail route sends.
   latestStartCumulative: [3.33, 16.67, 46.67, 100],
+  latestStartSchedule: [3.33, 13.34, 30, 53.33],
   labor: [],
+  laborLatestStart: [],
 };
 
-function renderDetail(labor: { trade: string; periods: number[] }[] = []) {
+function renderDetail(
+  labor: { trade: string; periods: number[] }[] = [],
+  laborLatestStart: { trade: string; periods: number[] }[] = [],
+) {
   const api = vi.fn(({ method, path }: { method: string; path: string }) => {
     if (method === 'GET' && path === 'resourceProjects/alpha')
-      return { data: { ...view, labor } };
+      return { data: { ...view, labor, laborLatestStart } };
     return new Response(null, { status: 404 });
   });
   const rendered = renderWithApp(
@@ -70,6 +75,21 @@ async function selectForm(label: string) {
   await waitFor(() => {
     expect(screen.getByTestId('s-curve-chart')).toBeInTheDocument();
   });
+}
+
+async function selectScenario(label: string) {
+  await userEvent.click(screen.getByRole('tab', { name: label }));
+  await waitFor(() => {
+    expect(screen.getByTestId('s-curve-chart')).toBeInTheDocument();
+  });
+}
+
+function laborGrid(): string[][] {
+  const table = screen.getByText(enUS.resourcePlanning.trade).closest('table');
+  expect(table).not.toBeNull();
+  return Array.from(table?.rows ?? []).map((row) =>
+    Array.from(row.cells).map((cell) => cell.textContent?.trim() ?? ''),
+  );
 }
 
 describe('project detail S-curve forms', () => {
@@ -192,5 +212,71 @@ describe('project detail S-curve forms', () => {
         within(group).getByRole('tab', { name: label }),
       ).toBeInTheDocument();
     }
+  });
+
+  it('keeps labor on the current schedule and explains why in combo and percent', async () => {
+    await renderDetail(
+      [{ trade: '普工', periods: [12, 12, 12, 12] }],
+      [{ trade: '普工', periods: [1, 2, 9, 12] }],
+    );
+
+    await screen.findByText('Alpha bridge');
+    expect(laborGrid()[1]).toEqual(['普工', '12', '12', '12', '12', '48']);
+    expect(
+      screen.getByText(enUS.resourcePlanning.laborUnchangedNote),
+    ).toBeInTheDocument();
+
+    await selectForm(enUS.resourcePlanning.sCurveForms.percent);
+    expect(laborGrid()[1]).toEqual(['普工', '12', '12', '12', '12', '48']);
+    expect(
+      screen.getByText(enUS.resourcePlanning.laborUnchangedNote),
+    ).toBeInTheDocument();
+  });
+
+  it('recomputes labor for the banana scenario and restores the earliest on switch back', async () => {
+    await renderDetail(
+      [{ trade: '普工', periods: [12, 12, 12, 12] }],
+      [{ trade: '普工', periods: [1, 2, 9, 12] }],
+    );
+
+    await screen.findByText('Alpha bridge');
+    await selectForm(enUS.resourcePlanning.sCurveForms.banana);
+    expect(laborGrid()[1]).toEqual(['普工', '12', '12', '12', '12', '48']);
+    expect(
+      screen.getByText(enUS.resourcePlanning.laborScenarioNote),
+    ).toBeInTheDocument();
+    const group = screen.getByRole('tablist', {
+      name: enUS.resourcePlanning.bananaScenarioLabel,
+    });
+    expect(
+      within(group).getByRole('tab', {
+        name: enUS.resourcePlanning.latestStart,
+      }),
+    ).toBeInTheDocument();
+
+    await selectScenario(enUS.resourcePlanning.latestStart);
+    expect(laborGrid()[1]).toEqual(['普工', '1', '2', '9', '12', '24']);
+    // The selected bound is the solid line; the other is dashed, so the
+    // curve and the table highlight the same plan.
+    const series = lastOption().series as {
+      lineStyle?: Record<string, unknown>;
+    }[];
+    expect(series[0].lineStyle).toEqual({ type: 'dashed', opacity: 0.55 });
+    expect(series[1].lineStyle).toEqual({ width: 3 });
+
+    await selectScenario(enUS.resourcePlanning.earliestStart);
+    expect(laborGrid()[1]).toEqual(['普工', '12', '12', '12', '12', '48']);
+  });
+
+  it('keeps a manual override visible in both banana scenarios', async () => {
+    await renderDetail(
+      [{ trade: '普工', periods: [12, 12, 12, 99] }],
+      [{ trade: '普工', periods: [1, 2, 9, 99] }],
+    );
+
+    await screen.findByText('Alpha bridge');
+    await selectForm(enUS.resourcePlanning.sCurveForms.banana);
+    await selectScenario(enUS.resourcePlanning.latestStart);
+    expect(laborGrid()[1]).toEqual(['普工', '1', '2', '9', '99', '111']);
   });
 });
