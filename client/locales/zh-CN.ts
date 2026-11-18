@@ -44,7 +44,7 @@ const zhCN: AppResource = {
     resourcePlanning: '资源计划',
     resourceProjects: '项目',
     resourceProjectsDescription: '排产量、S 曲线与劳动力需求。',
-    resourceCompare: '项目对比',
+    resourceCompare: '多项目对比',
     resourceTradeQuotas: '工种用工定额',
     resourceTradeQuotasDescription: '单位工程量的共享用工定额。',
   },

@@ -11,9 +11,8 @@ import { DataTable, DataTableColumnHeader } from '#components/data-table';
 import { ListFeedback } from '#components/list-feedback';
 import { RowActions } from '#components/row-actions';
 import { Button } from '#components/ui/button';
-import { useRouteAccess, useRouteTree } from '../../routing/route-context.js';
-import { routeKey } from '../../routing/route-navigation.js';
 
+import { useCompareEntryVisible } from './use-compare-entry.js';
 import type { ResourceProject } from './types.js';
 
 export default function ResourceProjectsPage(): ReactElement {
@@ -77,23 +76,6 @@ export default function ResourceProjectsPage(): ReactElement {
       <Outlet />
     </PageContainer>
   );
-}
-
-/**
- * Whether the "Compare projects" entry may show on this page. The compare route is registered under the
- * `resourceProjects` page, so it carries the same access as the list and detail pages that host this button.
- * A viewer who may not open the module page sees no entry, and no dead link. While the permission check is
- * still running the entry is hidden rather than risked as a dead link.
- */
-function useCompareEntryVisible(): boolean {
-  const { denied, loading } = useRouteAccess();
-  const routes = useRouteTree();
-  if (loading) return false;
-  const compare = routes
-    .find((route) => route.name === 'resourceProjects')
-    ?.children?.find((child) => child.name === 'resourceProjectCompare');
-  if (!compare) return false;
-  return !denied.has(routeKey(compare));
 }
 
 function useProjects() {

@@ -1982,8 +1982,10 @@ describe('a save started without returning its promise', () => {
 
 describe('a create form that marks its values saved on success', () => {
   // The project create dialog's shape: a FeedbackForm that reports `values` and `savedValues`, where `savedValues`
-  // is the form's blank values at first and becomes the just-saved record on success, so the close and navigation
-  // the save itself starts do not open "Discard changes?".
+  // is the form's blank values at first and becomes the just-saved record on success, and the create button sits
+  // in the overlay's footer, outside the form, submitting it by `form` — the shape the page now renders (see
+  // `tests/client/project-create.test.tsx` for the real page). The close and navigation the save itself starts do
+  // not open "Discard changes?"; a failed save keeps the form dirty and still asks.
   function CreateForm({ fail = false }: { readonly fail?: boolean }) {
     const navigate = useNavigate();
     const [values, setValues] = useState({
@@ -2004,7 +2006,6 @@ describe('a create form that marks its values saved on success', () => {
           setSavedValues({ ...values });
           void navigate('/projects');
         })
-        .catch(() => {})
         .finally(() => setSubmitting(false));
     };
     return (

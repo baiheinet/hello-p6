@@ -58,8 +58,10 @@ export default function NewProjectPage(): ReactElement {
   }, [name, totalQuantity, periodCount, startDate, endDate, t]);
 
   // Hands the create request's promise to the form's `onSubmit`, so the enclosing overlay's "Discard changes?"
-  // stays out while the save runs and the close and navigation it ends with. On success `savedValues` becomes the
-  // record just saved, so the form's input matches it. A failed save keeps the form dirty: leaving then still asks.
+  // stays out while the save runs and the navigation it ends with. On success the navigation to the new project's
+  // detail page closes the overlay (as the settings forms leave after a save); `savedValues` becomes the record
+  // just saved, so the form's input matches it. The dialog's create button submits the form, so this always runs
+  // through `FeedbackForm`: a failed save is reported in the form and keeps it dirty, so leaving still asks.
   const submit = () => {
     if (Object.keys(errors).length) return;
     setSubmitting(true);
@@ -78,7 +80,6 @@ export default function NewProjectPage(): ReactElement {
           startDate: data.startDate,
           endDate: data.endDate,
         });
-        void close();
         void navigate(`../${data.id}`);
       })
       .finally(() => setSubmitting(false));
@@ -93,9 +94,13 @@ export default function NewProjectPage(): ReactElement {
           <Button variant='ghost' onClick={() => void close()}>
             {t('resourcePlanning.cancel')}
           </Button>
+          {/* A submit button associated with the form by `form`, so the save runs through `FeedbackForm`'s
+              `onSubmit`: the overlay's guard sees the save running and does not ask "Discard changes?" over the
+              close and navigation a successful create starts, and a failed one is reported in the form. */}
           <Button
+            type='submit'
+            form='new-project-form'
             disabled={submitting || Object.keys(errors).length > 0}
-            onClick={() => void submit()}
           >
             {submitting
               ? t('resourcePlanning.saving')
@@ -105,6 +110,7 @@ export default function NewProjectPage(): ReactElement {
       }
     >
       <FeedbackForm
+        id='new-project-form'
         noValidate
         submitting={submitting}
         values={() => ({
