@@ -1,5 +1,5 @@
 import { useTranslation } from '@nocobase/i18n/client';
-import { type FormEvent, type ReactElement, useMemo, useState } from 'react';
+import { type ReactElement, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 
 import { FeedbackForm } from '#components/feedback-form';
@@ -30,6 +30,19 @@ export default function NewProjectPage(): ReactElement {
   const [startDate, setStartDate] = useState<Date | undefined>();
   const [endDate, setEndDate] = useState<Date | undefined>();
 
+  // The create form's blank values: what the form is filled with at start. On success, `savedValues` becomes the
+  // record just saved, so the form's input matches it and the overlay does not open "Discard changes?" over the
+  // navigation the save itself starts.
+  const [savedValues, setSavedValues] = useState<Record<string, unknown>>(
+    () => ({
+      name: '',
+      totalQuantity: '',
+      periodCount: '',
+      startDate: '',
+      endDate: '',
+    }),
+  );
+
   const errors = useMemo(() => {
     const result: Record<string, string> = {};
     if (!name.trim()) result.name = t('resourcePlanning.form.nameRequired');
@@ -44,10 +57,15 @@ export default function NewProjectPage(): ReactElement {
     return result;
   }, [name, totalQuantity, periodCount, startDate, endDate, t]);
 
+  // Hands the create request's promise to the form's `onSubmit`, so the enclosing overlay's "Discard changes?"
+  // stays out while the save runs and the navigation it ends with. On success the navigation to the new project's
+  // detail page closes the overlay (as the settings forms leave after a save); `savedValues` becomes the record
+  // just saved, so the form's input matches it. The dialog's create button submits the form, so this always runs
+  // through `FeedbackForm`: a failed save is reported in the form and keeps it dirty, so leaving still asks.
   const submit = () => {
     if (Object.keys(errors).length) return;
     setSubmitting(true);
-    void create({
+    return create({
       name: name.trim(),
       totalQuantity: Number(totalQuantity),
       periodCount: Number(periodCount),
@@ -55,16 +73,16 @@ export default function NewProjectPage(): ReactElement {
       endDate: formatDateOnly(endDate),
     })
       .then(({ data }) => {
-        void close();
+        setSavedValues({
+          name: data.name,
+          totalQuantity: String(data.totalQuantity),
+          periodCount: String(data.periodCount),
+          startDate: data.startDate,
+          endDate: data.endDate,
+        });
         void navigate(`../${data.id}`);
       })
-      .catch(() => {})
       .finally(() => setSubmitting(false));
-  };
-
-  const handleSubmit = (event: FormEvent) => {
-    event.preventDefault();
-    submit();
   };
 
   return (
@@ -76,9 +94,13 @@ export default function NewProjectPage(): ReactElement {
           <Button variant='ghost' onClick={() => void close()}>
             {t('resourcePlanning.cancel')}
           </Button>
+          {/* A submit button associated with the form by `form`, so the save runs through `FeedbackForm`'s
+              `onSubmit`: the overlay's guard sees the save running and does not ask "Discard changes?" over the
+              close and navigation a successful create starts, and a failed one is reported in the form. */}
           <Button
+            type='submit'
+            form='new-project-form'
             disabled={submitting || Object.keys(errors).length > 0}
-            onClick={handleSubmit}
           >
             {submitting
               ? t('resourcePlanning.saving')
@@ -88,6 +110,7 @@ export default function NewProjectPage(): ReactElement {
       }
     >
       <FeedbackForm
+        id='new-project-form'
         noValidate
         submitting={submitting}
         values={() => ({
@@ -97,7 +120,7 @@ export default function NewProjectPage(): ReactElement {
           startDate: startDate ? formatDateOnly(startDate) : '',
           endDate: endDate ? formatDateOnly(endDate) : '',
         })}
-        savedValues={undefined}
+        savedValues={savedValues}
         onSubmit={submit}
       >
         <FieldGroup>

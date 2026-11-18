@@ -44,7 +44,7 @@ const zhCN: AppResource = {
     resourcePlanning: '资源计划',
     resourceProjects: '项目',
     resourceProjectsDescription: '排产量、S 曲线与劳动力需求。',
-    resourceCompare: '项目对比',
+    resourceCompare: '多项目对比',
     resourceTradeQuotas: '工种用工定额',
     resourceTradeQuotasDescription: '单位工程量的共享用工定额。',
   },
@@ -87,6 +87,7 @@ const zhCN: AppResource = {
     adjust: '调整',
     apply: '应用',
     compare: '项目对比',
+    compareEntry: '多项目对比',
     compareDescription:
       '选择多个项目，在同一视图对比其排产量、S 曲线与劳动力需求。',
     compareNeedsSelection:
@@ -107,6 +108,7 @@ const zhCN: AppResource = {
     projectCount_other: '{{count}} 个项目',
     actionsFor: '对 {{name}} 的操作',
     actionOpen: '打开',
+    actionCompare: '与其他项目对比',
     actionScurve: 'S 曲线',
     actionLabor: '劳动力需求',
     form: {
