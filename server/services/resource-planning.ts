@@ -54,6 +54,35 @@ export function cumulativeSeries(schedule: readonly number[]): number[] {
 }
 
 /**
+ * The cumulative output of the banana curve's "latest start" plan: the same
+ * total quantity as the project's schedule, spread over the same periods by
+ * a quadratic ramp `w(i) = (i + 1)²`, so early periods carry little output
+ * and the later ones concentrate the work (front-light, back-heavy). The
+ * ramp is clamped below the project's own cumulative curve, so the two
+ * curves never cross and the plan's float reads as the band between them;
+ * both curves reach the schedule's total in the final period.
+ */
+export function latestStartCumulative(schedule: readonly number[]): number[] {
+  const count = schedule.length;
+  if (count === 0) return [];
+  const total = schedule.reduce((sum, value) => sum + value, 0);
+  const weights = Array.from(
+    { length: count },
+    (_, index) => (index + 1) * (index + 1),
+  );
+  const weightSum = weights.reduce((sum, weight) => sum + weight, 0);
+  const ramp: number[] = [];
+  let rampSum = 0;
+  for (let index = 0; index < count; index += 1) {
+    rampSum += (total * weights[index]) / weightSum;
+    ramp.push(rampSum);
+  }
+  ramp[count - 1] = total;
+  const earliest = cumulativeSeries(schedule);
+  return ramp.map((value, index) => Math.min(value, earliest[index]));
+}
+
+/**
  * Splits the total quantity evenly across `count` periods. When it does not
  * divide evenly, the earlier periods carry one extra unit and the last
  * period absorbs the remainder, so the values sum to the total exactly even

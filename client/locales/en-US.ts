@@ -81,6 +81,17 @@ const enUS = {
     planned: 'Planned output',
     cumulative: 'Cumulative',
     sCurve: 'S curve',
+    sCurveForms: {
+      label: 'S curve form',
+      combo: 'Output + cumulative',
+      percent: 'Cumulative %',
+      banana: 'Banana curve',
+    },
+    cumulativePercent: 'Cumulative completion',
+    earliestStart: 'Earliest start',
+    latestStart: 'Latest start',
+    bananaNote:
+      'The earliest-start curve is the project’s current schedule as cumulative output. The latest-start curve keeps early periods light and concentrates output late; both curves end at the total quantity, and the band between them is the float of the plan. Both bounds come from the same quantity basis as the schedule.',
     schedule: 'Output per period',
     labor: 'Labor demand',
     trade: 'Trade',

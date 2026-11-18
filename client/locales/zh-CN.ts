@@ -69,6 +69,17 @@ const zhCN: AppResource = {
     planned: '排产量',
     cumulative: '累计',
     sCurve: 'S 曲线',
+    sCurveForms: {
+      label: 'S 曲线形式',
+      combo: '本期 + 累计',
+      percent: '累计百分比',
+      banana: '香蕉曲线',
+    },
+    cumulativePercent: '累计完成百分比',
+    earliestStart: '最早开工',
+    latestStart: '最晚开工',
+    bananaNote:
+      '「最早开工」曲线为当前排产计划的累计输出；「最晚开工」曲线前期产量低、后期集中，两条曲线期末均等于工程总量，两线之间即为计划的浮动范围。两条曲线与排产计划采用同一工程量口径。',
     schedule: '每期排产量',
     labor: '劳动力需求',
     trade: '工种',

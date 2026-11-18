@@ -1,6 +1,7 @@
 import {
   rebalance,
   evenSchedule,
+  latestStartCumulative,
   laborDemand,
   roundLabor,
 } from '../../server/services/resource-planning.js';
@@ -23,6 +24,48 @@ describe('evenSchedule', () => {
   });
   it('answers an empty schedule for a zero period count', () => {
     expect(evenSchedule(10, 0)).toEqual([]);
+  });
+});
+
+describe('latestStartCumulative', () => {
+  const uniform = new Array(10).fill(1000);
+
+  it('ends at the schedule total and rises monotonically', () => {
+    const latest = latestStartCumulative(uniform);
+    expect(latest).toHaveLength(uniform.length);
+    expect(latest[latest.length - 1]).toBe(10000);
+    for (let index = 1; index < latest.length; index += 1) {
+      expect(latest[index]).toBeGreaterThanOrEqual(latest[index - 1]);
+    }
+  });
+
+  it('stays below the plan cumulative so the plan is the early bound', () => {
+    const latest = latestStartCumulative(uniform);
+    let running = 0;
+    for (let index = 0; index < uniform.length; index += 1) {
+      running += uniform[index];
+      expect(latest[index]).toBeLessThanOrEqual(running);
+    }
+  });
+
+  it('keeps the early periods light and the late ones heavy', () => {
+    const latest = latestStartCumulative(uniform);
+    // The ramp is quadratic: the first period is far below the average
+    // share and the last one far above it, so the curve is back-heavy.
+    expect(latest[0]).toBeLessThan(1000);
+    expect(latest[latest.length - 2]).toBeLessThan(9000);
+  });
+
+  it('follows a back-loaded plan without rising above it', () => {
+    // A plan that already concentrates work late is its own late bound:
+    // the latest-start curve is clamped to it and never crosses it.
+    const schedule = [0, 0, 0, 100];
+    const latest = latestStartCumulative(schedule);
+    expect(latest).toEqual([0, 0, 0, 100]);
+  });
+
+  it('keeps a single-period schedule as the total itself', () => {
+    expect(latestStartCumulative([500])).toEqual([500]);
   });
 });
 

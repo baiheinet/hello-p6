@@ -26,6 +26,7 @@ import {
   evenSchedule,
   rebalance,
   cumulativeSeries,
+  latestStartCumulative,
   laborDemand,
   periodLabel,
   type ResourceProject,
@@ -175,6 +176,11 @@ export const OverrideLaborInput = z.strictObject({
 
 export const ResourceProjectViewSchema = ResourceProjectSchema.extend({
   cumulative: z.array(z.number()),
+  /**
+   * The banana curve's "latest start" cumulative output, computed by the
+   * service from the same schedule the `cumulative` curve comes from.
+   */
+  latestStartCumulative: z.array(z.number()),
   labor: z.array(
     z.object({
       trade: z.string(),
@@ -437,7 +443,15 @@ export const resourcePlanningRoutes: AppApiRouteContribution<Application> =
             message: `Project ${projectId} was not found.`,
           });
         const view = await projectView(record);
-        return c.json({ data: view });
+        // The banana curve's "latest start" bound is a detail-page concern,
+        // computed here from the same schedule the S curve comes from; the
+        // compare view keeps its documented row shape.
+        return c.json({
+          data: {
+            ...view,
+            latestStartCumulative: latestStartCumulative(record.schedule ?? []),
+          },
+        });
       },
     );
 
