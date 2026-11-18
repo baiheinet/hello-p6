@@ -2,7 +2,7 @@ import { resolveListState, useApiClient } from '@nocobase/app-client';
 import { useTranslation } from '@nocobase/i18n/client';
 import { useCallback, useEffect, useState, type ReactElement } from 'react';
 import { Link, Outlet } from 'react-router';
-import { PlusIcon } from 'lucide-react';
+import { PlusIcon, Rows3Icon } from 'lucide-react';
 import { type ColumnDef, type Row } from '@tanstack/react-table';
 
 import { PageContainer } from '#components/page-container';
@@ -12,12 +12,14 @@ import { ListFeedback } from '#components/list-feedback';
 import { RowActions } from '#components/row-actions';
 import { Button } from '#components/ui/button';
 
+import { useCompareEntryVisible } from './use-compare-entry.js';
 import type { ResourceProject } from './types.js';
 
 export default function ResourceProjectsPage(): ReactElement {
   const { t } = useTranslation();
   const request = useProjects();
   const columns = useProjectColumns();
+  const canOpenCompare = useCompareEntryVisible();
   const listState = resolveListState(
     {
       data: request.data?.data,
@@ -34,10 +36,22 @@ export default function ResourceProjectsPage(): ReactElement {
         title={t('resourcePlanning.title')}
         description={t('resourcePlanning.description')}
         actions={
-          <Button nativeButton={false} render={<Link to='new' />}>
-            <PlusIcon data-icon='inline-start' />
-            {t('resourcePlanning.newProject')}
-          </Button>
+          <>
+            {canOpenCompare ? (
+              <Button
+                variant='outline'
+                nativeButton={false}
+                render={<Link to='compare' />}
+              >
+                <Rows3Icon data-icon='inline-start' />
+                {t('resourcePlanning.compareEntry')}
+              </Button>
+            ) : null}
+            <Button nativeButton={false} render={<Link to='new' />}>
+              <PlusIcon data-icon='inline-start' />
+              {t('resourcePlanning.newProject')}
+            </Button>
+          </>
         }
       />
       <ListFeedback state={listState}>
@@ -166,6 +180,7 @@ function useProjectColumns(): ColumnDef<ResourceProject>[] {
 function ProjectActions({ row }: { row: Row<ResourceProject> }): ReactElement {
   const { t } = useTranslation();
   const project = row.original;
+  const canOpenCompare = useCompareEntryVisible();
   return (
     <RowActions
       label={t('resourcePlanning.actionsFor', { name: project.name })}
@@ -179,6 +194,17 @@ function ProjectActions({ row }: { row: Row<ResourceProject> }): ReactElement {
             </Link>
           ),
         },
+        canOpenCompare
+          ? {
+              key: 'compare',
+              label: t('resourcePlanning.actionCompare'),
+              render: (
+                <Link to={`/resource-projects/compare?ids=${project.id}`}>
+                  {t('resourcePlanning.actionCompare')}
+                </Link>
+              ),
+            }
+          : null,
       ]}
     />
   );

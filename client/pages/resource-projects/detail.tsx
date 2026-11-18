@@ -1,7 +1,8 @@
 import { useTranslation } from '@nocobase/i18n/client';
 import { type ReactElement, type FocusEvent, useMemo, useState } from 'react';
-import { useParams } from 'react-router';
+import { Link, useParams } from 'react-router';
 import ReactECharts from 'echarts-for-react';
+import { Rows3Icon } from 'lucide-react';
 
 import { PageContainer } from '#components/page-container';
 import { PageHeader } from '#components/page-header';
@@ -17,6 +18,7 @@ import {
 import { Button } from '#components/ui/button';
 
 import { periodLabel } from './labels.js';
+import { useCompareEntryVisible } from './use-compare-entry.js';
 import { useAdjustPeriod, useOverrideLabor, useProjectView } from './api.js';
 import type { ResourceProjectView } from './types.js';
 
@@ -64,6 +66,7 @@ function Shell({
   readonly children: ReactElement | ReactElement[];
 }): ReactElement {
   const { t } = useTranslation();
+  const canOpenCompare = useCompareEntryVisible();
   return (
     <PageContainer>
       <PageHeader
@@ -75,6 +78,18 @@ function Shell({
                 periods: view.periodCount,
               })
             : undefined
+        }
+        actions={
+          canOpenCompare ? (
+            <Button
+              variant='outline'
+              nativeButton={false}
+              render={<Link to='../compare' />}
+            >
+              <Rows3Icon data-icon='inline-start' />
+              {t('resourcePlanning.compareEntry')}
+            </Button>
+          ) : undefined
         }
       />
       {children}
@@ -263,7 +278,7 @@ function LaborSection({
               <TableRow>
                 <TableHead>{t('resourcePlanning.trade')}</TableHead>
                 {view.schedule.map((_, index) => (
-                  <TableHead key={index}>
+                  <TableHead key={periodLabel(index, view.startDate)}>
                     {periodLabel(index, view.startDate)}
                   </TableHead>
                 ))}
@@ -276,8 +291,9 @@ function LaborSection({
                   {periods.map((value, index) => {
                     const isEditing =
                       editing?.trade === trade && editing.index === index;
+                    const cellKey = `${trade}:${periodLabel(index, view.startDate)}`;
                     return (
-                      <TableCell key={index}>
+                      <TableCell key={cellKey}>
                         {isEditing ? (
                           <input
                             type='number'
