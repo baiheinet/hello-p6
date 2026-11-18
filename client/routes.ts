@@ -7,14 +7,12 @@ import {
   HammerIcon,
   Home,
   ListTreeIcon,
-  PlusIcon,
   Rows3Icon,
 } from 'lucide-react';
 import settingsShellRoutes from './pages/settings/shell-routes.js';
 import {
   defineAppRoutes,
   type AppClientRouteContribution,
-  type AppClientRouteDefinition,
 } from '@nocobase/app-client/plugins';
 
 const appRoutes: AppClientRouteContribution = defineAppRoutes([
@@ -82,7 +80,10 @@ const appRoutes: AppClientRouteContribution = defineAppRoutes([
     name: 'resourcePlanning',
     path: '/resource-planning',
     auth: 'required',
-    authz: { resource: { type: 'page', id: 'resourcePlanning' }, action: 'access' },
+    authz: {
+      resource: { type: 'page', id: 'resourcePlanning' },
+      action: 'access',
+    },
     navigation: { title: 'navigation.resourcePlanning', icon: HammerIcon },
     componentLoader: () => import('./pages/resource-planning/index.js'),
   },
@@ -90,7 +91,10 @@ const appRoutes: AppClientRouteContribution = defineAppRoutes([
     name: 'resourceProjects',
     path: '/resource-projects',
     auth: 'required',
-    authz: { resource: { type: 'page', id: 'resourceProjects' }, action: 'access' },
+    authz: {
+      resource: { type: 'page', id: 'resourceProjects' },
+      action: 'access',
+    },
     navigation: {
       title: 'navigation.resourceProjects',
       description: 'navigation.resourceProjectsDescription',
@@ -101,21 +105,33 @@ const appRoutes: AppClientRouteContribution = defineAppRoutes([
       {
         name: 'resourceProjectNew',
         path: 'new',
-        authz: { resource: { type: 'page', id: 'resourceProjects' }, action: 'access' },
-        presentation: { kind: 'dialog', title: 'resourcePlanning.newProjectTitle' },
+        authz: {
+          resource: { type: 'page', id: 'resourceProjects' },
+          action: 'access',
+        },
+        presentation: {
+          kind: 'dialog',
+          title: 'resourcePlanning.newProjectTitle',
+        },
         componentLoader: () => import('./pages/resource-projects/new.js'),
       },
       {
         name: 'resourceProjectCompare',
         path: 'compare',
-        authz: { resource: { type: 'page', id: 'resourceProjects' }, action: 'access' },
+        authz: {
+          resource: { type: 'page', id: 'resourceProjects' },
+          action: 'access',
+        },
         navigation: { title: 'navigation.resourceCompare', icon: Rows3Icon },
         componentLoader: () => import('./pages/resource-projects/compare.js'),
       },
       {
         name: 'resourceProjectDetail',
         path: ':projectId',
-        authz: { resource: { type: 'page', id: 'resourceProjects' }, action: 'access' },
+        authz: {
+          resource: { type: 'page', id: 'resourceProjects' },
+          action: 'access',
+        },
         componentLoader: () => import('./pages/resource-projects/detail.js'),
       },
     ],

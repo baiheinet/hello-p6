@@ -25,6 +25,12 @@ export interface ResourceProject {
 export interface ResourceProjectView extends ResourceProject {
   /** Cumulative planned quantity, one value per period. */
   readonly cumulative: readonly number[];
+  /**
+   * The banana curve's "latest start" cumulative output, one value per
+   * period: the same total spread front-light and back-heavy, ending at the
+   * schedule's total.
+   */
+  readonly latestStartCumulative: readonly number[];
   /** One row per trade: its per-period labor demand with overrides applied. */
   readonly labor: readonly {
     readonly trade: string;

@@ -235,6 +235,38 @@ test('the S curve is the running total of the schedule', async ({
   }
 });
 
+test('the detail view adds the latest-start bound for the banana curve', async ({
+  testApp,
+}) => {
+  const admin = await signIn(testApp, DEFAULT_ADMIN_CREDENTIALS);
+  const project = (await createProject((path, init) =>
+    admin.fetch(path, init),
+  )) as { id: string; schedule: number[] };
+  const response = await admin.fetch(`/resourceProjects/${project.id}`);
+  expect(response.status).toBe(200);
+  const data = (await response.json()).data as {
+    schedule: number[];
+    cumulative: number[];
+    latestStartCumulative: number[];
+  };
+  expect(data.latestStartCumulative).toHaveLength(data.schedule.length);
+  // Both bounds end at the total, the late one rises monotonically, and it
+  // never rises above the plan's own cumulative curve.
+  expect(
+    data.latestStartCumulative[data.latestStartCumulative.length - 1],
+  ).toBe(10000);
+  for (let index = 0; index < data.latestStartCumulative.length; index += 1) {
+    expect(data.latestStartCumulative[index]).toBeLessThanOrEqual(
+      data.cumulative[index],
+    );
+    if (index > 0) {
+      expect(data.latestStartCumulative[index]).toBeGreaterThanOrEqual(
+        data.latestStartCumulative[index - 1],
+      );
+    }
+  }
+});
+
 test('compares at least two projects side by side', async ({ testApp }) => {
   const admin = await signIn(testApp, DEFAULT_ADMIN_CREDENTIALS);
   const first = await createProject((path, init) => admin.fetch(path, init));

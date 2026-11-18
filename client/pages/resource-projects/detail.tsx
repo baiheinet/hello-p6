@@ -14,6 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from '#components/ui/table';
+import { Tabs, TabsList, TabsTrigger } from '#components/ui/tabs';
 import { Button } from '#components/ui/button';
 
 import { periodLabel } from './labels.js';
@@ -82,42 +83,133 @@ function Shell({
   );
 }
 
+/** The S-curve forms the card can switch between, in segmented-control order. */
+type CurveForm = 'combo' | 'percent' | 'banana';
+
 function SCurveCard({
   view,
 }: {
   readonly view: ResourceProjectView;
 }): ReactElement {
   const { t } = useTranslation();
-  const option = useMemo(
-    () => ({
+  // The choice lives for this session only: switching re-renders the chart
+  // from the view already loaded and never refetches the page data.
+  const [form, setForm] = useState<CurveForm>('combo');
+  const labels = useMemo(
+    () => view.schedule.map((_, index) => periodLabel(index, view.startDate)),
+    [view],
+  );
+  const option = useMemo(() => {
+    if (form === 'combo') {
+      // P6 Usage-Profile style: one bar per period on the left axis, the
+      // cumulative curve on the right axis. Both read the same values as
+      // the schedule table.
+      return {
+        grid: { left: 48, right: 48, top: 32, bottom: 32 },
+        legend: { top: 0 },
+        tooltip: { trigger: 'axis' },
+        xAxis: { type: 'category', data: labels },
+        yAxis: [
+          { type: 'value' },
+          { type: 'value', splitLine: { show: false } },
+        ],
+        series: [
+          {
+            name: t('resourcePlanning.planned'),
+            type: 'bar',
+            data: view.schedule,
+          },
+          {
+            name: t('resourcePlanning.cumulative'),
+            type: 'line',
+            smooth: true,
+            yAxisIndex: 1,
+            data: view.cumulative,
+          },
+        ],
+      };
+    }
+    if (form === 'percent') {
+      // The same cumulative curve on a 0–100% scale: cumulative ÷ total.
+      const percent = view.cumulative.map((value) =>
+        view.totalQuantity > 0 ? (value / view.totalQuantity) * 100 : 0,
+      );
+      return {
+        grid: { left: 48, right: 24, top: 32, bottom: 32 },
+        tooltip: {
+          trigger: 'axis',
+          valueFormatter: (value: number) => `${value.toFixed(1)}%`,
+        },
+        xAxis: { type: 'category', data: labels },
+        yAxis: {
+          type: 'value',
+          max: 100,
+          axisLabel: { formatter: '{value}%' },
+        },
+        series: [
+          {
+            name: t('resourcePlanning.cumulativePercent'),
+            type: 'line',
+            smooth: true,
+            areaStyle: {},
+            data: percent,
+          },
+        ],
+      };
+    }
+    // Banana curve: the earliest-start bound is the project's own
+    // cumulative curve; the latest-start bound comes from the server and
+    // never rises above it, so the band between them is the plan's float.
+    return {
       grid: { left: 48, right: 24, top: 32, bottom: 32 },
-      xAxis: {
-        type: 'category',
-        data: view.schedule.map((_, index) =>
-          periodLabel(index, view.startDate),
-        ),
-      },
-      yAxis: { type: 'value' },
+      legend: { top: 0 },
       tooltip: { trigger: 'axis' },
+      xAxis: { type: 'category', data: labels },
+      yAxis: { type: 'value' },
       series: [
         {
-          name: t('resourcePlanning.cumulative'),
+          name: t('resourcePlanning.earliestStart'),
           type: 'line',
           smooth: true,
-          areaStyle: {},
           data: view.cumulative,
         },
+        {
+          name: t('resourcePlanning.latestStart'),
+          type: 'line',
+          smooth: true,
+          data: view.latestStartCumulative,
+        },
       ],
-    }),
-    [view, t],
-  );
+    };
+  }, [form, labels, t, view]);
   return (
     <Card>
       <CardHeader>
         <CardTitle>{t('resourcePlanning.sCurve')}</CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className='space-y-3'>
+        <Tabs
+          value={form}
+          onValueChange={(value) => setForm(value as CurveForm)}
+        >
+          <TabsList aria-label={t('resourcePlanning.sCurveForms.label')}>
+            <TabsTrigger value='combo'>
+              {t('resourcePlanning.sCurveForms.combo')}
+            </TabsTrigger>
+            <TabsTrigger value='percent'>
+              {t('resourcePlanning.sCurveForms.percent')}
+            </TabsTrigger>
+            <TabsTrigger value='banana'>
+              {t('resourcePlanning.sCurveForms.banana')}
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
         <ReactECharts style={{ height: 288 }} option={option} notMerge />
+        {form === 'banana' ? (
+          <p className='text-xs text-muted-foreground'>
+            {t('resourcePlanning.bananaNote')}
+          </p>
+        ) : null}
       </CardContent>
     </Card>
   );
@@ -263,7 +355,7 @@ function LaborSection({
               <TableRow>
                 <TableHead>{t('resourcePlanning.trade')}</TableHead>
                 {view.schedule.map((_, index) => (
-                  <TableHead key={index}>
+                  <TableHead key={periodLabel(index, view.startDate)}>
                     {periodLabel(index, view.startDate)}
                   </TableHead>
                 ))}
@@ -277,7 +369,9 @@ function LaborSection({
                     const isEditing =
                       editing?.trade === trade && editing.index === index;
                     return (
-                      <TableCell key={index}>
+                      <TableCell
+                        key={`${trade}:${periodLabel(index, view.startDate)}`}
+                      >
                         {isEditing ? (
                           <input
                             type='number'
