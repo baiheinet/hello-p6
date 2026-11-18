@@ -86,6 +86,7 @@ export function useTrades() {
     error?: unknown;
     loading: boolean;
   }>({ loading: true });
+  const [reloadKey, setReloadKey] = useState(0);
   useEffect(() => {
     const controller = new AbortController();
     api
@@ -102,8 +103,31 @@ export function useTrades() {
         },
       );
     return () => controller.abort();
-  }, [api]);
-  return result;
+  }, [api, reloadKey]);
+  const reload = useCallback(() => {
+    setReloadKey((value) => value + 1);
+  }, []);
+  return { ...result, reload };
+}
+
+/** The counts a template load reports back to the page. */
+export interface LoadDefaultTradesResult {
+  readonly added: number;
+  readonly skipped: number;
+  readonly total: number;
+}
+
+/** Fills missing trades from the industry reference baseline, idempotently. */
+export function useLoadDefaultTrades() {
+  const api = useApiClient();
+  return useCallback(
+    () =>
+      api.request<{ data: LoadDefaultTradesResult }>({
+        path: 'laborTrades/loadDefault',
+        method: 'POST',
+      }),
+    [api],
+  );
 }
 
 /**

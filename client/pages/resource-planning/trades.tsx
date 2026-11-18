@@ -1,3 +1,4 @@
+import { useToaster } from '@nocobase/app-client';
 import { useTranslation } from '@nocobase/i18n/client';
 import { type ReactElement, useState } from 'react';
 
@@ -16,15 +17,47 @@ import { Button } from '#components/ui/button';
 import { Input } from '#components/ui/input';
 import { PlusIcon } from 'lucide-react';
 
-import { useSaveTradeQuota, useTrades } from '../resource-projects/api.js';
+import {
+  useLoadDefaultTrades,
+  useSaveTradeQuota,
+  useTrades,
+} from '../resource-projects/api.js';
 
 export default function TradeQuotasPage(): ReactElement {
   const { t } = useTranslation();
-  const { data: trades, error, loading } = useTrades();
+  const toaster = useToaster();
+  const { data: trades, error, loading, reload } = useTrades();
   const save = useSaveTradeQuota();
+  const loadDefault = useLoadDefaultTrades();
   const [newName, setNewName] = useState('');
   const [newQuota, setNewQuota] = useState('');
   const [busy, setBusy] = useState(false);
+  const [loadingDefault, setLoadingDefault] = useState(false);
+
+  const handleLoadDefault = () => {
+    setLoadingDefault(true);
+    void loadDefault()
+      .then(({ data }) => {
+        reload();
+        toaster.show({
+          type: 'success',
+          title:
+            data.added > 0
+              ? t('resourcePlanning.defaultQuotasLoaded', {
+                  added: data.added,
+                  skipped: data.skipped,
+                })
+              : t('resourcePlanning.defaultQuotasNoChanges'),
+        });
+      })
+      .catch(() => {
+        toaster.show({
+          type: 'error',
+          title: t('resourcePlanning.loadDefaultQuotasFailed'),
+        });
+      })
+      .finally(() => setLoadingDefault(false));
+  };
 
   const handleAdd = () => {
     if (!newName.trim() || Number(newQuota) < 0) return;
@@ -75,6 +108,20 @@ export default function TradeQuotasPage(): ReactElement {
           <CardTitle>{t('resourcePlanning.tradeQuotas')}</CardTitle>
         </CardHeader>
         <CardContent>
+          <div className='mb-4 flex flex-wrap items-center justify-between gap-3'>
+            <p className='text-sm text-muted-foreground'>
+              {t('resourcePlanning.defaultQuotasHint')}
+            </p>
+            <Button
+              variant='outline'
+              disabled={busy || loadingDefault}
+              onClick={handleLoadDefault}
+            >
+              {loadingDefault
+                ? t('resourcePlanning.loading')
+                : t('resourcePlanning.loadDefaultQuotas')}
+            </Button>
+          </div>
           {trades?.length ? (
             <Table>
               <TableHeader>

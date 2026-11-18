@@ -21,6 +21,7 @@ import { type Application } from '@nocobase/app-server';
 import { Hono, type Context } from 'hono';
 import { z } from 'zod';
 
+import { applyLaborTradeTemplate } from '../providers/labor-trade-template.js';
 import {
   resourcePlanningRepositories,
   evenSchedule,
@@ -236,6 +237,15 @@ export const UpdateLaborTradeInput = z.strictObject({
 });
 
 export const LaborTradeParams = z.object({ tradeId: z.string() });
+
+/** The outcome of loading the industry reference quotas into the shared table. */
+export const LoadDefaultTradesResponse = z
+  .object({
+    added: z.number().int().nonnegative(),
+    skipped: z.number().int().nonnegative(),
+    total: z.number().int().nonnegative(),
+  })
+  .meta({ ref: 'LoadDefaultTradesResult' });
 
 /**
  * The resource-planning API: project CRUD, per-period adjustment, the S curve
@@ -712,6 +722,40 @@ export const resourcePlanningRoutes: AppApiRouteContribution<Application> =
         const repo = await tradesFor(c, 'read');
         const rows = await repo.findMany();
         return c.json({ data: rows, meta: { total: rows.length } });
+      },
+    );
+
+    /**
+     * One-click template load. Reading the table needs only a session, but
+     * writing it rides on the trade-quota settings item's `update` grant just
+     * like create/update/delete do. The loader only inserts missing names, so
+     * repeated calls never duplicate a trade or overwrite a user's quota.
+     */
+    router.post(
+      '/laborTrades/loadDefault',
+      auth.required(),
+      authorization.middleware(),
+      describeRoute({
+        tags: ['Resource Planning'],
+        summary: 'Load the industry default labor trade quotas',
+        operationId: 'loadDefaultLaborTrades',
+        responses: {
+          '200': dataResponse(LoadDefaultTradesResponse),
+          ...apiErrorResponses,
+        },
+      }),
+      async (context) => {
+        const c = context as unknown as Context<AuthorizationEnv>;
+        const repo = await tradesFor(c, 'update');
+        const result = await applyLaborTradeTemplate(
+          repo as unknown as Repository<{
+            id: string;
+            name: string;
+            unitQuota: number;
+          }>,
+          () => idGenerator.generateString(),
+        );
+        return c.json({ data: result });
       },
     );
 
