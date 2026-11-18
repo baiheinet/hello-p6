@@ -94,6 +94,7 @@ const enUS = {
       'The earliest-start curve is the project’s current schedule as cumulative output. The latest-start curve keeps early periods light and concentrates output late; both curves end at the total quantity, and the band between them is the float of the plan. Both bounds come from the same quantity basis as the schedule.',
     schedule: 'Output per period',
     labor: 'Labor demand',
+    total: 'Total',
     trade: 'Trade',
     quota: 'Workforce per unit',
     adjust: 'Adjust',
@@ -111,6 +112,15 @@ const enUS = {
       'The shared workforce per unit of quantity. A project’s labor demand is its per-period output times this table.',
     addTrade: 'Add trade',
     manageQuotas: 'Manage quotas',
+    loadDefaultQuotas: 'Load industry defaults',
+    defaultQuotasHint:
+      'These are industry reference values; adjust them to your project, region or company.',
+    defaultQuotasLoaded:
+      'Loaded {{added}} trade quotas; skipped {{skipped}} that already existed.',
+    defaultQuotasNoChanges:
+      'All default quotas are already present; nothing was added.',
+    loadDefaultQuotasFailed:
+      'The default quotas could not be loaded. Please try again.',
     loading: 'Loading…',
     noTrades:
       'No trades yet. Add a trade and its quota to see labor demand per period.',

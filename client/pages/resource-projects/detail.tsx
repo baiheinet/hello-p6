@@ -4,6 +4,8 @@ import { Link, useParams } from 'react-router';
 import ReactECharts from 'echarts-for-react';
 import { Rows3Icon } from 'lucide-react';
 
+import { laborTotals } from './labor-totals.js';
+
 import { PageContainer } from '#components/page-container';
 import { PageHeader } from '#components/page-header';
 import { Card, CardContent, CardHeader, CardTitle } from '#components/ui/card';
@@ -11,6 +13,7 @@ import {
   Table,
   TableBody,
   TableCell,
+  TableFooter,
   TableHead,
   TableHeader,
   TableRow,
@@ -341,6 +344,10 @@ function LaborSection({
     index: number;
   } | null>(null);
   const [saving, setSaving] = useState(false);
+  const totals = useMemo(
+    () => laborTotals(view.labor, view.schedule.length),
+    [view],
+  );
 
   const handleBlur = (event: FocusEvent<HTMLInputElement>) => {
     if (!editing) return;
@@ -374,6 +381,7 @@ function LaborSection({
                     {periodLabel(index, view.startDate)}
                   </TableHead>
                 ))}
+                <TableHead>{t('resourcePlanning.total')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -408,9 +416,23 @@ function LaborSection({
                       </TableCell>
                     );
                   })}
+                  <TableCell className='font-medium'>
+                    {totals.trade[trade]}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
+            <TableFooter>
+              <TableRow className='font-medium'>
+                <TableCell>{t('resourcePlanning.total')}</TableCell>
+                {totals.period.map((value, index) => (
+                  <TableCell key={periodLabel(index, view.startDate)}>
+                    {value}
+                  </TableCell>
+                ))}
+                <TableCell>{totals.grand}</TableCell>
+              </TableRow>
+            </TableFooter>
           </Table>
         )}
       </CardContent>

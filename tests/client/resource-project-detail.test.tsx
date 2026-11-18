@@ -36,10 +36,10 @@ const view = {
   labor: [],
 };
 
-function renderDetail() {
+function renderDetail(labor: { trade: string; periods: number[] }[] = []) {
   const api = vi.fn(({ method, path }: { method: string; path: string }) => {
     if (method === 'GET' && path === 'resourceProjects/alpha')
-      return { data: view };
+      return { data: { ...view, labor } };
     return new Response(null, { status: 404 });
   });
   const rendered = renderWithApp(
@@ -137,6 +137,43 @@ describe('project detail S-curve forms', () => {
     expect(
       screen.getByText(enUS.resourcePlanning.bananaNote),
     ).toBeInTheDocument();
+  });
+
+  it('adds per-period, per-trade and grand totals to the labor table', async () => {
+    await renderDetail([
+      { trade: '普工', periods: [12, 12, 12, 12] },
+      { trade: '钢筋工', periods: [3, 3, 3, 3] },
+    ]);
+
+    await screen.findByText('Alpha bridge');
+    const table = screen.getByText('普工').closest('table');
+    expect(table).not.toBeNull();
+    const grid = Array.from(table?.rows ?? []).map((row) =>
+      Array.from(row.cells).map((cell) => cell.textContent?.trim() ?? ''),
+    );
+    expect(grid[0]).toEqual([
+      enUS.resourcePlanning.trade,
+      '2026-01',
+      '2026-02',
+      '2026-03',
+      '2026-04',
+      enUS.resourcePlanning.total,
+    ]);
+    expect(grid[1]).toEqual(['普工', '12', '12', '12', '12', '48']);
+    expect(grid[2]).toEqual(['钢筋工', '3', '3', '3', '3', '12']);
+    expect(grid[3]).toEqual([
+      enUS.resourcePlanning.total,
+      '15',
+      '15',
+      '15',
+      '15',
+      '60',
+    ]);
+    // The grand total is the sum of every visible demand cell.
+    const cells = grid.slice(1, 3).flatMap((row) => row.slice(1, 5));
+    expect(Number(grid[3][5])).toBe(
+      cells.reduce((sum, value) => sum + Number(value), 0),
+    );
   });
 
   it('labels the three forms on the segmented control', async () => {
