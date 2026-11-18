@@ -101,7 +101,8 @@ const zhCN: AppResource = {
     manageQuotas: '管理定额',
     loadDefaultQuotas: '加载行业默认定额',
     defaultQuotasHint: '以下为行业参考值，可按项目、地区或企业实际自行调整。',
-    defaultQuotasLoaded: '已加载 {{added}} 个工种定额，跳过 {{skipped}} 个已存在工种。',
+    defaultQuotasLoaded:
+      '已加载 {{added}} 个工种定额，跳过 {{skipped}} 个已存在工种。',
     defaultQuotasNoChanges: '默认工种定额已全部存在，无需重复加载。',
     loadDefaultQuotasFailed: '默认定额加载失败，请重试。',
     loading: '加载中…',

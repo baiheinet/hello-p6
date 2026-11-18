@@ -116,8 +116,10 @@ const enUS = {
       'These are industry reference values; adjust them to your project, region or company.',
     defaultQuotasLoaded:
       'Loaded {{added}} trade quotas; skipped {{skipped}} that already existed.',
-    defaultQuotasNoChanges: 'All default quotas are already present; nothing was added.',
-    loadDefaultQuotasFailed: 'The default quotas could not be loaded. Please try again.',
+    defaultQuotasNoChanges:
+      'All default quotas are already present; nothing was added.',
+    loadDefaultQuotasFailed:
+      'The default quotas could not be loaded. Please try again.',
     loading: 'Loading…',
     noTrades:
       'No trades yet. Add a trade and its quota to see labor demand per period.',

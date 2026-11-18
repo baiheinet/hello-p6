@@ -3,7 +3,7 @@ import type { Repository } from '@nocobase/db';
 import {
   LABOR_TRADE_TEMPLATE,
   type LaborTradeTemplateRow,
-} from '../../database/main/seeds/labor-trade-template-data.ts';
+} from '../../database/seed-data/labor-trade-template.ts';
 
 /** The record shape the loader needs from the shared trade collection. */
 export interface LaborTradeTemplateRecord {

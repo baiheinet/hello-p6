@@ -747,13 +747,8 @@ export const resourcePlanningRoutes: AppApiRouteContribution<Application> =
       async (context) => {
         const c = context as unknown as Context<AuthorizationEnv>;
         const repo = await tradesFor(c, 'update');
-        const result = await applyLaborTradeTemplate(
-          repo as unknown as Repository<{
-            id: string;
-            name: string;
-            unitQuota: number;
-          }>,
-          () => idGenerator.generateString(),
+        const result = await applyLaborTradeTemplate(repo, () =>
+          idGenerator.generateString(),
         );
         return c.json({ data: result });
       },

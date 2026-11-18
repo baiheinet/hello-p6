@@ -294,6 +294,162 @@ test('compares at least two projects side by side', async ({ testApp }) => {
   }
 });
 
+const writeHeaders = {
+  'content-type': 'application/json',
+  origin: 'http://localhost',
+};
+
+async function tradeRows(
+  fetch: (input: string, init?: RequestInit) => Promise<Response>,
+): Promise<{ id: string; name: string; unitQuota: number }[]> {
+  const response = await fetch('/laborTrades');
+  expect(response.status).toBe(200);
+  return ((await response.json()).data ?? []) as {
+    id: string;
+    name: string;
+    unitQuota: number;
+  }[];
+}
+
+test('loadDefault requires a signed-in caller with the update grant', async ({
+  request,
+  testApp,
+}) => {
+  const anonymous = await request('/laborTrades/loadDefault', {
+    method: 'POST',
+    headers: writeHeaders,
+  });
+  expect(anonymous.status).toBe(401);
+
+  // A separate identity: the file's application and database are shared, and
+  // the member created by the earlier permission test already exists.
+  const loadMember = {
+    email: 'load-default-member@example.test',
+    password: 'test-load-member-password',
+  };
+  const userAdmin = testApp.application.container.resolve(
+    userAdministrationServiceToken,
+  );
+  await userAdmin.create({
+    name: 'Load-default member',
+    email: loadMember.email,
+    password: loadMember.password,
+  });
+  const memberSession = await signIn(testApp, loadMember);
+  const forbidden = await memberSession.fetch('/laborTrades/loadDefault', {
+    method: 'POST',
+    headers: writeHeaders,
+  });
+  expect(forbidden.status).toBe(403);
+});
+
+test('loadDefault fills missing trades once and never overwrites edits', async ({
+  testApp,
+}) => {
+  const admin = await signIn(testApp, DEFAULT_ADMIN_CREDENTIALS);
+  const fetch = (path: string, init?: RequestInit) => admin.fetch(path, init);
+
+  // Start from an empty table so the load counts are unambiguous.
+  for (const row of await tradeRows(fetch)) {
+    const removed = await fetch(`/laborTrades/${row.id}`, {
+      method: 'DELETE',
+      headers: writeHeaders,
+    });
+    expect(removed.status).toBe(204);
+  }
+  expect(await tradeRows(fetch)).toHaveLength(0);
+
+  const first = await fetch('/laborTrades/loadDefault', {
+    method: 'POST',
+    headers: writeHeaders,
+  });
+  expect(first.status).toBe(200);
+  expect((await first.json()).data).toMatchObject({
+    added: 14,
+    skipped: 0,
+    total: 14,
+  });
+  const loaded = await tradeRows(fetch);
+  expect(loaded).toHaveLength(14);
+  expect(loaded.map((row) => row.name)).toEqual(
+    expect.arrayContaining(['普工', '钢筋工', '测量工']),
+  );
+
+  const second = await fetch('/laborTrades/loadDefault', {
+    method: 'POST',
+    headers: writeHeaders,
+  });
+  expect(second.status).toBe(200);
+  expect((await second.json()).data).toMatchObject({
+    added: 0,
+    skipped: 14,
+    total: 14,
+  });
+
+  // A manually tuned quota survives, while a deleted default trade is filled
+  // back in on the next load.
+  const edited = loaded.find((row) => row.name === '普工');
+  const deleted = loaded.find((row) => row.name === '钢筋工');
+  expect(edited).toBeDefined();
+  expect(deleted).toBeDefined();
+  const tuned = await fetch(`/laborTrades/${edited?.id}`, {
+    method: 'PATCH',
+    headers: writeHeaders,
+    body: JSON.stringify({ unitQuota: 0.77 }),
+  });
+  expect(tuned.status).toBe(200);
+  const removed = await fetch(`/laborTrades/${deleted?.id}`, {
+    method: 'DELETE',
+    headers: writeHeaders,
+  });
+  expect(removed.status).toBe(204);
+
+  const third = await fetch('/laborTrades/loadDefault', {
+    method: 'POST',
+    headers: writeHeaders,
+  });
+  expect(third.status).toBe(200);
+  expect((await third.json()).data).toMatchObject({ added: 1, skipped: 13 });
+  const after = await tradeRows(fetch);
+  expect(after).toHaveLength(14);
+  expect(after.find((row) => row.name === '普工')?.unitQuota).toBe(0.77);
+  expect(after.find((row) => row.name === '钢筋工')?.unitQuota).toBe(0.09);
+});
+
+test('editing a trade quota recomputes the project labor demand', async ({
+  testApp,
+}) => {
+  const admin = await signIn(testApp, DEFAULT_ADMIN_CREDENTIALS);
+  const project = await createProject((path, init) => admin.fetch(path, init));
+  const viewUrl = `/resourceProjects/${(project as { id: string }).id}`;
+  const before = await admin.fetch(viewUrl);
+  const beforeData = (await before.json()).data as {
+    labor: { trade: string; periods: number[] }[];
+  };
+  const trade = (await tradeRows((path, init) => admin.fetch(path, init))).find(
+    (row) => row.name === '普工',
+  );
+  expect(trade).toBeDefined();
+  // An earlier test may have tuned this row; assert against its current value.
+  const general = beforeData.labor.find((row) => row.trade === trade?.name);
+  expect(general?.periods[0]).toBe(1000 * (trade?.unitQuota ?? 0));
+
+  const patched = await admin.fetch(`/laborTrades/${trade?.id}`, {
+    method: 'PATCH',
+    headers: writeHeaders,
+    body: JSON.stringify({ unitQuota: 0.5 }),
+  });
+  expect(patched.status).toBe(200);
+
+  const after = await admin.fetch(viewUrl);
+  const afterData = (await after.json()).data as {
+    labor: { trade: string; periods: number[] }[];
+  };
+  expect(afterData.labor.find((row) => row.trade === '普工')?.periods[0]).toBe(
+    500,
+  );
+});
+
 test('persists a manual labor override and applies it to the demand', async ({
   testApp,
 }) => {
